@@ -1,21 +1,32 @@
 /**
- * Chronos — Personal Availability & Booking Engine (Multilingual Release v7)
- * Languages: English (EN), Italian (IT), Romanian (RO), Slovenian (SL)
- * 100% Translated UI Strings (Details, Host View, Empty Inbox States, Search)
+ * Chronos — Personal Availability & Booking Engine (Production v8 Final)
+ * - 100% Wiped Legacy Demo Data (No Alex Rivera, Maria, David)
+ * - Fixed Multilingual Switcher (EN, IT, RO, SL across months, pills, & headers)
+ * - Mobile Phone Layout Fix (Strict Overflow & Responsive Day Cells)
  */
 
 (function () {
   'use strict';
 
-  const STORAGE_KEY_USERS = 'chronos_users_prod_v7';
-  const STORAGE_KEY_APPOINTMENTS = 'chronos_appointments_prod_v7';
-  const STORAGE_KEY_CURRENT_USER = 'chronos_current_user_prod_v7';
-  const STORAGE_KEY_FRIENDS = 'chronos_friends_prod_v7';
-  const STORAGE_KEY_LANG = 'chronos_language_v2';
+  // Clear legacy cached storage from older versions
+  const LEGACY_KEYS = [
+    'chronos_users_v4', 'chronos_appointments_v4', 'chronos_current_user_v4', 'chronos_friends_v4',
+    'chronos_users_prod_v5', 'chronos_appointments_prod_v5', 'chronos_current_user_prod_v5', 'chronos_friends_prod_v5',
+    'chronos_users_prod_v6', 'chronos_appointments_prod_v6', 'chronos_current_user_prod_v6', 'chronos_friends_prod_v6',
+    'chronos_users_prod_v7', 'chronos_appointments_prod_v7', 'chronos_current_user_prod_v7', 'chronos_friends_prod_v7'
+  ];
+  LEGACY_KEYS.forEach(k => { try { localStorage.removeItem(k); } catch (e) {} });
+
+  const STORAGE_KEY_USERS = 'chronos_users_v8_clean';
+  const STORAGE_KEY_APPOINTMENTS = 'chronos_appointments_v8_clean';
+  const STORAGE_KEY_CURRENT_USER = 'chronos_current_user_v8_clean';
+  const STORAGE_KEY_FRIENDS = 'chronos_friends_v8_clean';
+  const STORAGE_KEY_LANG = 'chronos_language_v8_clean';
 
   // 100% Complete Translation Dictionaries
   const I18N = {
     en: {
+      months: ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'],
       navCalendar: 'Calendar',
       navInbox: 'Inbox',
       navFriends: 'Friends',
@@ -76,6 +87,7 @@
       calendarTitleSuffix: "'s Calendar"
     },
     it: {
+      months: ['Gennaio', 'Febbraio', 'Marzo', 'Aprile', 'Maggio', 'Giugno', 'Luglio', 'Agosto', 'Settembre', 'Ottobre', 'Novembre', 'Dicembre'],
       navCalendar: 'Calendario',
       navInbox: 'In arrivo',
       navFriends: 'Amici',
@@ -136,6 +148,7 @@
       calendarTitleSuffix: ' - Calendario'
     },
     ro: {
+      months: ['Ianuarie', 'Februarie', 'Martie', 'Aprilie', 'Mai', 'Iunie', 'Iulie', 'August', 'Septembrie', 'Octombrie', 'Noiembrie', 'Decembrie'],
       navCalendar: 'Calendar',
       navInbox: 'Mesaje primite',
       navFriends: 'Prieteni',
@@ -196,6 +209,7 @@
       calendarTitleSuffix: ' - Calendar'
     },
     sl: {
+      months: ['Januar', 'Februar', 'Marec', 'April', 'Maj', 'Junij', 'Julij', 'Avgust', 'September', 'Oktober', 'November', 'December'],
       navCalendar: 'Koledar',
       navInbox: 'Prejeto',
       navFriends: 'Prijatelji',
@@ -257,6 +271,7 @@
     }
   };
 
+  // Pristine seed state with 1 default user (No demo accounts like Alex Rivera)
   const DEFAULT_USERS = [
     {
       username: 'me',
@@ -943,8 +958,8 @@
   // --- CALENDAR RENDERER ---
   function renderCalendar() {
     const dict = I18N[currentLang] || I18N.en;
-    const monthsEN = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
-    currentMonthYearLabel.textContent = `${monthsEN[currentMonth]} ${currentYear}`;
+    const monthName = dict.months ? dict.months[currentMonth] : 'Month';
+    currentMonthYearLabel.textContent = `${monthName} ${currentYear}`;
 
     calendarGrid.innerHTML = '';
 
@@ -961,8 +976,8 @@
     for (let i = firstDayIndex - 1; i >= 0; i--) {
       const dayNum = prevMonthDays - i;
       const dayCell = document.createElement('div');
-      dayCell.className = 'p-1.5 sm:p-3 min-h-[60px] sm:min-h-[90px] rounded-2xl bg-white/[0.02] border border-white/5 opacity-35 cursor-not-allowed flex flex-col justify-between';
-      dayCell.innerHTML = `<span class="text-[11px] sm:text-xs font-medium text-zinc-500">${dayNum}</span>`;
+      dayCell.className = 'p-1.5 sm:p-3 min-h-[52px] sm:min-h-[90px] rounded-2xl bg-white/[0.02] border border-white/5 opacity-35 cursor-not-allowed flex flex-col justify-between overflow-hidden';
+      dayCell.innerHTML = `<span class="text-[10px] sm:text-xs font-medium text-zinc-500">${dayNum}</span>`;
       calendarGrid.appendChild(dayCell);
     }
 
@@ -980,7 +995,7 @@
       const hasPending = dayAppointments.some(a => a.status === 'pending');
 
       const dayCell = document.createElement('div');
-      dayCell.className = `day-card p-1.5 sm:p-3 min-h-[60px] sm:min-h-[90px] rounded-2xl border backdrop-blur-md cursor-pointer flex flex-col justify-between relative group ${
+      dayCell.className = `day-card p-1.5 sm:p-3 min-h-[52px] sm:min-h-[90px] rounded-2xl border backdrop-blur-md cursor-pointer flex flex-col justify-between relative group overflow-hidden ${
         isToday ? 'bg-blue-600/15 border-blue-500/40' : 'bg-black/40 border-white/10 hover:bg-white/10'
       }`;
 
@@ -991,29 +1006,29 @@
         const timeLabel = acceptedApt.isFullDay ? dict.allDay : `${acceptedApt.startTime}-${acceptedApt.endTime}`;
 
         statusPillHtml = `
-          <div class="mt-0.5 flex items-center space-x-1 px-1 py-0.5 rounded-lg bg-purple-500/20 text-purple-300 border border-purple-500/30 text-[9px] sm:text-[10px] truncate" title="Tap to inspect">
+          <div class="mt-0.5 flex items-center space-x-1 px-1 py-0.5 rounded-lg bg-purple-500/20 text-purple-300 border border-purple-500/30 text-[9px] sm:text-[10px] truncate max-w-full" title="Tap to inspect">
             <span class="w-1.5 h-1.5 rounded-full bg-purple-400 flex-shrink-0"></span>
             <span class="truncate font-medium">${timeLabel}</span>
           </div>`;
       } else if (hasPending) {
         const pendingApt = dayAppointments.find(a => a.status === 'pending');
         statusPillHtml = `
-          <div class="mt-0.5 flex items-center space-x-1 px-1 py-0.5 rounded-lg bg-blue-500/20 text-blue-300 border border-blue-500/30 text-[9px] sm:text-[10px] truncate">
+          <div class="mt-0.5 flex items-center space-x-1 px-1 py-0.5 rounded-lg bg-blue-500/20 text-blue-300 border border-blue-500/30 text-[9px] sm:text-[10px] truncate max-w-full">
             <span class="w-1.5 h-1.5 rounded-full bg-apple-accent animate-pulse flex-shrink-0"></span>
-            <span class="truncate font-medium">${dict.statusPending} (${pendingApt.startTime})</span>
+            <span class="truncate font-medium">${dict.statusPending}</span>
           </div>`;
       } else {
         statusPillHtml = `
-          <div class="mt-0.5 flex items-center space-x-1 px-1 py-0.5 rounded-lg bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-[9px] sm:text-[10px] opacity-80">
+          <div class="mt-0.5 flex items-center space-x-1 px-1 py-0.5 rounded-lg bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-[9px] sm:text-[10px] opacity-80 truncate max-w-full">
             <span class="w-1.5 h-1.5 rounded-full bg-apple-green flex-shrink-0"></span>
-            <span>${dict.statusFree}</span>
+            <span class="truncate font-medium">${dict.statusFree}</span>
           </div>`;
       }
 
       dayCell.innerHTML = `
-        <div class="flex items-center justify-between">
-          <span class="text-xs font-bold ${isToday ? 'text-apple-accent' : 'text-white'}">${d}</span>
-          ${isToday ? `<span class="text-[8px] sm:text-[9px] font-bold px-1 rounded bg-apple-accent text-white uppercase">${dict.today}</span>` : ''}
+        <div class="flex items-center justify-between min-w-0">
+          <span class="text-[11px] sm:text-xs font-bold ${isToday ? 'text-apple-accent' : 'text-white'}">${d}</span>
+          ${isToday ? `<span class="text-[7px] sm:text-[9px] font-bold px-1 rounded bg-apple-accent text-white uppercase">${dict.today}</span>` : ''}
         </div>
         ${statusPillHtml}
       `;
@@ -1037,8 +1052,8 @@
 
     for (let n = 1; n <= nextMonthPadding; n++) {
       const dayCell = document.createElement('div');
-      dayCell.className = 'p-1.5 sm:p-3 min-h-[60px] sm:min-h-[90px] rounded-2xl bg-white/[0.02] border border-white/5 opacity-35 cursor-not-allowed flex flex-col justify-between';
-      dayCell.innerHTML = `<span class="text-[11px] sm:text-xs font-medium text-zinc-500">${n}</span>`;
+      dayCell.className = 'p-1.5 sm:p-3 min-h-[52px] sm:min-h-[90px] rounded-2xl bg-white/[0.02] border border-white/5 opacity-35 cursor-not-allowed flex flex-col justify-between overflow-hidden';
+      dayCell.innerHTML = `<span class="text-[10px] sm:text-xs font-medium text-zinc-500">${n}</span>`;
       calendarGrid.appendChild(dayCell);
     }
   }
