@@ -1,0 +1,7 @@
+# Chronos git ignore
+.DS_Store
+*.log
+node_modules/
+dist/
+.vscode/
+.idea/
