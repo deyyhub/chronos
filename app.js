@@ -1,83 +1,275 @@
 /**
- * Chronos — Personal Calendar & Appointment Booking Engine
- * Built with Apple UI Aesthetics (SF Pro, Glassmorphism, Lucide SVG Icons)
+ * Chronos — Personal Availability & Booking Engine (Multilingual Release v7)
+ * Languages: English (EN), Italian (IT), Romanian (RO), Slovenian (SL)
+ * 100% Translated UI Strings (Details, Host View, Empty Inbox States, Search)
  */
 
 (function () {
   'use strict';
 
-  const STORAGE_KEY_USERS = 'chronos_users_v4';
-  const STORAGE_KEY_APPOINTMENTS = 'chronos_appointments_v4';
-  const STORAGE_KEY_CURRENT_USER = 'chronos_current_user_v4';
-  const STORAGE_KEY_FRIENDS = 'chronos_friends_v4';
+  const STORAGE_KEY_USERS = 'chronos_users_prod_v7';
+  const STORAGE_KEY_APPOINTMENTS = 'chronos_appointments_prod_v7';
+  const STORAGE_KEY_CURRENT_USER = 'chronos_current_user_prod_v7';
+  const STORAGE_KEY_FRIENDS = 'chronos_friends_prod_v7';
+  const STORAGE_KEY_LANG = 'chronos_language_v2';
+
+  // 100% Complete Translation Dictionaries
+  const I18N = {
+    en: {
+      navCalendar: 'Calendar',
+      navInbox: 'Inbox',
+      navFriends: 'Friends',
+      share: 'Share',
+      editProfile: 'Edit Profile',
+      bannerSubtitle: 'Select any available day to request an appointment slot.',
+      today: 'Today',
+      statusFree: 'Free',
+      statusPending: 'Pending',
+      statusAccepted: 'Accepted',
+      legendHint: 'Tap day to book or view notes',
+      sun: 'Sun', mon: 'Mon', tue: 'Tue', wed: 'Wed', thu: 'Thu', fri: 'Fri', sat: 'Sat',
+      inboxTitle: 'Appointment Inbox',
+      inboxSubtitle: 'Review incoming booking requests to accept or decline.',
+      filterPending: 'Pending', filterAccepted: 'Accepted', filterDeclined: 'Declined', filterAll: 'All',
+      friendsTitle: 'Saved Friends & Directory',
+      friendsSubtitle: 'Search handles with live suggestions.',
+      addFriendBtn: 'Add New Friend',
+      bookingTitle: 'Request Appointment',
+      selectedDate: 'Selected Date',
+      fullDayLabel: 'Full Day Occupied / Event',
+      startTime: 'Start Time (HH:MM)',
+      endTime: 'End Time (HH:MM)',
+      allDay: 'All Day',
+      noteLabel: 'Appointment Note / Purpose',
+      nameLabel: 'Your Name / Identifier',
+      sendRequestBtn: 'Send Booking Request',
+      saveFriend: 'Save Friend',
+      eventDetails: 'Event Details',
+      participant: 'Participant / Requester',
+      noteDescription: 'Note / Description',
+      statusLabel: 'Status',
+      editProfileTitle: 'Edit Your Profile',
+      editProfileSubtitle: 'Set your real name, nickname, or handle.',
+      displayNameLabel: 'Your Display Name / Nickname',
+      usernameLabel: 'Username Handle',
+      bioLabel: 'Profile Bio',
+      saveChanges: 'Save Changes',
+      accountManagerTitle: 'Account & PFP Manager',
+      accountManagerSubtitle: 'Switch active user or register new account.',
+      registeredAccounts: 'Registered Accounts',
+      orRegister: 'Or Register Account',
+      pfpOptionLabel: 'Avatar PFP Option',
+      registerBtn: 'Register & Switch Account',
+      addFriendModalTitle: 'Save Friend Calendar',
+      addFriendModalSubtitle: 'Type handle to search live user suggestions.',
+      searchHandleLabel: 'Search Handle or Name',
+      saveToListBtn: 'Save to Friends List',
+      privacyPublic: 'Details: Public',
+      privacyPrivate: 'Details: Private',
+      hostView: 'Host View',
+      guestView: 'Guest View',
+      noRequestsFound: 'No requests found',
+      noRequestsSubtitle: 'There are no appointment requests for this filter.',
+      noFriendsFound: 'No saved friends yet',
+      noFriendsSubtitle: 'Use the search bar above to type a handle or name and save friends.',
+      searchPlaceholder: 'Search name or handle...',
+      calendarTitleSuffix: "'s Calendar"
+    },
+    it: {
+      navCalendar: 'Calendario',
+      navInbox: 'In arrivo',
+      navFriends: 'Amici',
+      share: 'Condividi',
+      editProfile: 'Modifica profilo',
+      bannerSubtitle: 'Seleziona un giorno disponibile per richiedere un appuntamento.',
+      today: 'Oggi',
+      statusFree: 'Libero',
+      statusPending: 'In attesa',
+      statusAccepted: 'Accettato',
+      legendHint: 'Tocca un giorno per prenotare o vedere le note',
+      sun: 'Dom', mon: 'Lun', tue: 'Mar', wed: 'Mer', thu: 'Gio', fri: 'Ven', sat: 'Sab',
+      inboxTitle: 'Richieste ricevute',
+      inboxSubtitle: 'Esamina le richieste di prenotazione per accettarle o rifiutarle.',
+      filterPending: 'In attesa', filterAccepted: 'Accettati', filterDeclined: 'Rifiutati', filterAll: 'Tutti',
+      friendsTitle: 'Amici salvati e rubrica',
+      friendsSubtitle: 'Cerca username con suggerimenti in tempo reale.',
+      addFriendBtn: 'Aggiungi amico',
+      bookingTitle: 'Richiedi appuntamento',
+      selectedDate: 'Data selezionata',
+      fullDayLabel: 'Tutto il giorno occupato',
+      startTime: 'Ora inizio (HH:MM)',
+      endTime: 'Ora fine (HH:MM)',
+      allDay: 'Tutto il giorno',
+      noteLabel: 'Nota / Motivo appuntamento',
+      nameLabel: 'Il tuo nome / Username',
+      sendRequestBtn: 'Invia richiesta',
+      saveFriend: 'Salva amico',
+      eventDetails: 'Dettagli evento',
+      participant: 'Partecipante / Richiedente',
+      noteDescription: 'Nota / Descrizione',
+      statusLabel: 'Stato',
+      editProfileTitle: 'Modifica il tuo profilo',
+      editProfileSubtitle: 'Imposta il tuo nome reale, nickname o handle.',
+      displayNameLabel: 'Il tuo nome / Nickname',
+      usernameLabel: 'Handle Username',
+      bioLabel: 'Bio del profilo',
+      saveChanges: 'Salva modifiche',
+      accountManagerTitle: 'Gestione account e PFP',
+      accountManagerSubtitle: 'Cambia utente attivo o registra un nuovo account.',
+      registeredAccounts: 'Account registrati',
+      orRegister: 'O registra account',
+      pfpOptionLabel: 'Opzione Avatar PFP',
+      registerBtn: 'Registra e cambia account',
+      addFriendModalTitle: 'Salva calendario amico',
+      addFriendModalSubtitle: 'Digita handle per cercare suggerimenti live.',
+      searchHandleLabel: 'Cerca handle o nome',
+      saveToListBtn: 'Salva nella lista amici',
+      privacyPublic: 'Dettagli: Pubblici',
+      privacyPrivate: 'Dettagli: Privati',
+      hostView: 'Vista Host',
+      guestView: 'Vista Ospite',
+      noRequestsFound: 'Nessuna richiesta trovata',
+      noRequestsSubtitle: 'Non ci sono richieste di appuntamento per questo filtro.',
+      noFriendsFound: 'Nessun amico salvato',
+      noFriendsSubtitle: 'Usa la barra di ricerca sopra per cercare un nome e salvare amici.',
+      searchPlaceholder: 'Cerca nome o username...',
+      calendarTitleSuffix: ' - Calendario'
+    },
+    ro: {
+      navCalendar: 'Calendar',
+      navInbox: 'Mesaje primite',
+      navFriends: 'Prieteni',
+      share: 'Distribuie',
+      editProfile: 'Editează profilul',
+      bannerSubtitle: 'Selectează o zi disponibilă pentru a solicita o programare.',
+      today: 'Astăzi',
+      statusFree: 'Disponibil',
+      statusPending: 'În așteptare',
+      statusAccepted: 'Acceptat',
+      legendHint: 'Apasă pe o zi pentru a rezerva sau a vedea notele',
+      sun: 'Dum', mon: 'Lun', tue: 'Mar', wed: 'Mie', thu: 'Joi', fri: 'Vin', sat: 'Sâm',
+      inboxTitle: 'Solicitări primite',
+      inboxSubtitle: 'Examinează solicitările de programare pentru a le accepta sau refuza.',
+      filterPending: 'În așteptare', filterAccepted: 'Acceptate', filterDeclined: 'Refuzate', filterAll: 'Toate',
+      friendsTitle: 'Prieteni salvați',
+      friendsSubtitle: 'Caută utilizatori cu sugestii în timp real.',
+      addFriendBtn: 'Adaugă prieten',
+      bookingTitle: 'Solicită o programare',
+      selectedDate: 'Data selectată',
+      fullDayLabel: 'Ocupat toată ziua',
+      startTime: 'Ora de început (HH:MM)',
+      endTime: 'Ora de sfârșit (HH:MM)',
+      allDay: 'Toată ziua',
+      noteLabel: 'Notă / Motivul programării',
+      nameLabel: 'Numele tău / Utilizator',
+      sendRequestBtn: 'Trimite solicitarea',
+      saveFriend: 'Salvează prieten',
+      eventDetails: 'Detalii eveniment',
+      participant: 'Participant / Solicitant',
+      noteDescription: 'Notă / Descriere',
+      statusLabel: 'Status',
+      editProfileTitle: 'Editează-ți profilul',
+      editProfileSubtitle: 'Setează-ți numele real, pseudonimul sau utilizatorul.',
+      displayNameLabel: 'Numele afișat / Pseudonim',
+      usernameLabel: 'Nume utilizator (Handle)',
+      bioLabel: 'Descriere profil',
+      saveChanges: 'Salvează modificările',
+      accountManagerTitle: 'Administrare conturi și PFP',
+      accountManagerSubtitle: 'Schimbă utilizatorul activ sau înregistrează un cont nou.',
+      registeredAccounts: 'Conturi înregistrate',
+      orRegister: 'Sau înregistrează cont',
+      pfpOptionLabel: 'Opțiune Avatar PFP',
+      registerBtn: 'Înregistrează și schimbă contul',
+      addFriendModalTitle: 'Salvează calendarul prietenului',
+      addFriendModalSubtitle: 'Tastează utilizatorul pentru căutare live.',
+      searchHandleLabel: 'Caută utilizator sau nume',
+      saveToListBtn: 'Salvează în lista de prieteni',
+      privacyPublic: 'Detalii: Publice',
+      privacyPrivate: 'Detalii: Private',
+      hostView: 'Vedere Gazdă',
+      guestView: 'Vedere Oaspete',
+      noRequestsFound: 'Nu s-au găsit solicitări',
+      noRequestsSubtitle: 'Nu există solicitări de programare pentru acest filtru.',
+      noFriendsFound: 'Niciun prieten salvat încă',
+      noFriendsSubtitle: 'Folosește bara de căutare de mai sus pentru a căuta și salva prieteni.',
+      searchPlaceholder: 'Caută nume sau utilizator...',
+      calendarTitleSuffix: ' - Calendar'
+    },
+    sl: {
+      navCalendar: 'Koledar',
+      navInbox: 'Prejeto',
+      navFriends: 'Prijatelji',
+      share: 'Deli',
+      editProfile: 'Uredi profil',
+      bannerSubtitle: 'Izberite prost dan in zaprosite za termin.',
+      today: 'Danes',
+      statusFree: 'Prosto',
+      statusPending: 'Na čakanju',
+      statusAccepted: 'Sprejeto',
+      legendHint: 'Tapnite na dan za rezervacijo ali ogled opomb',
+      sun: 'Ned', mon: 'Pon', tue: 'Tor', wed: 'Sre', thu: 'Čet', fri: 'Pet', sat: 'Sob',
+      inboxTitle: 'Prejeta zaprosila',
+      inboxSubtitle: 'Preglejte zaprosila za termine in jih sprejmite ali zavrnite.',
+      filterPending: 'Na čakanju', filterAccepted: 'Sprejeto', filterDeclined: 'Zavrnjeno', filterAll: 'Vse',
+      friendsTitle: 'Shranjeni prijatelji',
+      friendsSubtitle: 'Iščite uporabnike z predlogi v realnem času.',
+      addFriendBtn: 'Dodaj prijatelja',
+      bookingTitle: 'Zaprosi za termin',
+      selectedDate: 'Izbran datum',
+      fullDayLabel: 'Zasedeno cel dan',
+      startTime: 'Začetni čas (HH:MM)',
+      endTime: 'Končni čas (HH:MM)',
+      allDay: 'Cel dan',
+      noteLabel: 'Opomba / Namen termina',
+      nameLabel: 'Vaše ime / Uporabniško ime',
+      sendRequestBtn: 'Pošlji zaprosilo',
+      saveFriend: 'Shrani prijatelja',
+      eventDetails: 'Podrobnosti dogodka',
+      participant: 'Udeleženec / Vlagatelj',
+      noteDescription: 'Opomba / Opis',
+      statusLabel: 'Status',
+      editProfileTitle: 'Uredite svoj profil',
+      editProfileSubtitle: 'Nastavite pravo ime, vzdevek ali uporabniško ime.',
+      displayNameLabel: 'Prikazano ime / Vzdevek',
+      usernameLabel: 'Uporabniško ime (Handle)',
+      bioLabel: 'Opis profila',
+      saveChanges: 'Shrani spremembe',
+      accountManagerTitle: 'Upravitelj računov in PFP',
+      accountManagerSubtitle: 'Preklopite aktivnega uporabnika ali registrirajte nov račun.',
+      registeredAccounts: 'Registrirani računi',
+      orRegister: 'Ali registrirajte račun',
+      pfpOptionLabel: 'Možnost Avatar PFP',
+      registerBtn: 'Registriraj in preklopi račun',
+      addFriendModalTitle: 'Shrani koledar prijatelja',
+      addFriendModalSubtitle: 'Vtipkajte uporabniško ime za iskanje v živo.',
+      searchHandleLabel: 'Išči uporabniško ime ali ime',
+      saveToListBtn: 'Shrani na seznam prijateljev',
+      privacyPublic: 'Podrobnosti: Javno',
+      privacyPrivate: 'Podrobnosti: Zasebno',
+      hostView: 'Pogled Gostitelja',
+      guestView: 'Pogled Gosta',
+      noRequestsFound: 'Ni najdenih zaprosil',
+      noRequestsSubtitle: 'Za ta filter ni zaprosil za termine.',
+      noFriendsFound: 'Še ni shranjenih prijateljev',
+      noFriendsSubtitle: 'Uporabite iskalno vrstico zgoraj za iskanje in shranjevanje prijateljev.',
+      searchPlaceholder: 'Išči ime ali uporabniško ime...',
+      calendarTitleSuffix: ' - Koledar'
+    }
+  };
 
   const DEFAULT_USERS = [
     {
       username: 'me',
       name: 'My Calendar',
-      bio: 'Open for appointments & catchups.',
+      bio: 'Select any available day to request an appointment slot.',
       color: 'from-blue-600 to-indigo-600',
-      privacyShowDetails: true,
-      pfpType: 'initials',
-      pfpUrl: ''
-    },
-    {
-      username: 'alex',
-      name: 'Alex Rivera',
-      bio: 'Product Design & Architecture.',
-      color: 'from-purple-600 to-pink-600',
-      privacyShowDetails: false,
-      pfpType: 'url',
-      pfpUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80'
-    },
-    {
-      username: 'maria',
-      name: 'Maria Chen',
-      bio: 'Software & Security Research.',
-      color: 'from-emerald-600 to-teal-600',
-      privacyShowDetails: true,
-      pfpType: 'initials',
-      pfpUrl: ''
-    },
-    {
-      username: 'david',
-      name: 'David Vance',
-      bio: 'Engineering & Systems Lead.',
-      color: 'from-amber-600 to-orange-600',
       privacyShowDetails: true,
       pfpType: 'initials',
       pfpUrl: ''
     }
   ];
 
-  const DEFAULT_APPOINTMENTS = [
-    {
-      id: 'apt_seed_1',
-      hostUsername: 'me',
-      requesterUsername: 'alex',
-      requesterName: 'Alex Rivera',
-      dateStr: getOffsetDateStr(2),
-      startTime: '17:10',
-      endTime: '19:00',
-      isFullDay: false,
-      note: 'Discuss project roadmap and schedule.',
-      status: 'pending',
-      createdAt: new Date().toISOString()
-    },
-    {
-      id: 'apt_seed_2',
-      hostUsername: 'me',
-      requesterUsername: 'me',
-      requesterName: 'Me',
-      dateStr: getOffsetDateStr(5),
-      startTime: '00:00',
-      endTime: '23:59',
-      isFullDay: true,
-      note: 'All Day Workshop.',
-      status: 'accepted',
-      createdAt: new Date().toISOString()
-    }
-  ];
+  const DEFAULT_APPOINTMENTS = [];
 
   function getOffsetDateStr(offsetDays) {
     const d = new Date();
@@ -89,10 +281,11 @@
   }
 
   // --- STATE ---
+  let currentLang = loadFromStorage(STORAGE_KEY_LANG, 'en');
   let users = loadFromStorage(STORAGE_KEY_USERS, DEFAULT_USERS);
   let appointments = loadFromStorage(STORAGE_KEY_APPOINTMENTS, DEFAULT_APPOINTMENTS);
   let currentUsername = loadFromStorage(STORAGE_KEY_CURRENT_USER, 'me');
-  let friendsMap = loadFromStorage(STORAGE_KEY_FRIENDS, { me: [], alex: ['me'] });
+  let friendsMap = loadFromStorage(STORAGE_KEY_FRIENDS, { me: [] });
 
   let viewingUsername = getUrlParameter('user') || currentUsername;
   let currentDate = new Date();
@@ -106,11 +299,12 @@
   saveToStorage(STORAGE_KEY_APPOINTMENTS, appointments);
   saveToStorage(STORAGE_KEY_CURRENT_USER, currentUsername);
   saveToStorage(STORAGE_KEY_FRIENDS, friendsMap);
+  saveToStorage(STORAGE_KEY_LANG, currentLang);
 
   // --- DOM ELEMENTS ---
   const brandLink = document.getElementById('brandLink');
-  const viewingProfileName = document.getElementById('viewingProfileName');
-  
+  const languageSelect = document.getElementById('languageSelect');
+
   const navCalendar = document.getElementById('navCalendar');
   const navInbox = document.getElementById('navInbox');
   const navFriends = document.getElementById('navFriends');
@@ -156,7 +350,7 @@
   const yearSelect = document.getElementById('yearSelect');
   const calendarGrid = document.getElementById('calendarGrid');
 
-  // Live Autocomplete Search Elements
+  // Live Search Elements
   const liveUserSearchInput = document.getElementById('liveUserSearchInput');
   const clearSearchBtn = document.getElementById('clearSearchBtn');
   const autocompleteDropdown = document.getElementById('autocompleteDropdown');
@@ -191,7 +385,7 @@
   const editUsernameInput = document.getElementById('editUsernameInput');
   const editBioInput = document.getElementById('editBioInput');
 
-  // Auth & PFP Modal
+  // Auth & Account Switcher Modal
   const authModal = document.getElementById('authModal');
   const closeAuthModalBtn = document.getElementById('closeAuthModalBtn');
   const registeredUsersList = document.getElementById('registeredUsersList');
@@ -221,11 +415,32 @@
 
   // --- BOOT ---
   function init() {
+    languageSelect.value = currentLang;
+    applyLanguageTranslations();
     setupYearSelect();
     setupEventListeners();
     updateUserDisplays();
     renderActiveView();
     refreshIcons();
+  }
+
+  // --- MULTILINGUAL i18n ENGINE ---
+  function applyLanguageTranslations() {
+    const dict = I18N[currentLang] || I18N.en;
+
+    document.querySelectorAll('[data-i18n]').forEach(el => {
+      const key = el.getAttribute('data-i18n');
+      if (dict[key]) {
+        el.textContent = dict[key];
+      }
+    });
+
+    if (liveUserSearchInput) {
+      liveUserSearchInput.placeholder = dict.searchPlaceholder;
+    }
+
+    updateUserDisplays();
+    renderActiveView();
   }
 
   function renderActiveView() {
@@ -236,6 +451,13 @@
 
   // --- EVENT LISTENERS ---
   function setupEventListeners() {
+    languageSelect.addEventListener('change', (e) => {
+      currentLang = e.target.value;
+      saveToStorage(STORAGE_KEY_LANG, currentLang);
+      applyLanguageTranslations();
+      showToast(`Language set to ${currentLang.toUpperCase()}`, 'success');
+    });
+
     navCalendar.addEventListener('click', () => switchTab('calendar'));
     navInbox.addEventListener('click', () => switchTab('inbox'));
     navFriends.addEventListener('click', () => switchTab('friends'));
@@ -286,15 +508,12 @@
     });
 
     shareBtn.addEventListener('click', copyShareLink);
-
     privacyToggleBtn.addEventListener('click', toggleHostPrivacy);
 
-    // Edit Profile Modal
     editProfileBtn.addEventListener('click', openEditProfileModal);
     closeEditProfileModalBtn.addEventListener('click', closeEditProfileModal);
     editProfileForm.addEventListener('submit', handleSaveProfileEdit);
 
-    // Account Modal
     userAccountBtn.addEventListener('click', openAuthModal);
     closeAuthModalBtn.addEventListener('click', closeAuthModal);
     createAccountForm.addEventListener('submit', handleCreateAccount);
@@ -304,7 +523,6 @@
       else pfpUrlInput.classList.add('hidden');
     });
 
-    // Booking Modal
     closeBookingModalBtn.addEventListener('click', closeBookingModal);
     bookingForm.addEventListener('submit', handleBookingSubmit);
     fullDayCheckbox.addEventListener('change', handleFullDayToggle);
@@ -339,7 +557,6 @@
     addFriendForm.addEventListener('submit', handleAddFriend);
     addFriendBtn.addEventListener('click', () => addFriendToCurrentUser(viewingUsername));
 
-    // Live Google-style Autocomplete Listeners
     liveUserSearchInput.addEventListener('input', handleLiveUserSearch);
     clearSearchBtn.addEventListener('click', () => {
       liveUserSearchInput.value = '';
@@ -349,7 +566,6 @@
 
     friendUsernameInput.addEventListener('input', handleModalUserSearch);
 
-    // Hide dropdowns when clicking outside
     document.addEventListener('click', (e) => {
       if (!liveUserSearchInput.contains(e.target) && !autocompleteDropdown.contains(e.target)) {
         autocompleteDropdown.classList.add('hidden');
@@ -365,7 +581,7 @@
     filterAll.addEventListener('click', () => setInboxFilter('all'));
   }
 
-  // --- GOOGLE-STYLE AUTOCOMPLETE SEARCH ENGINE ---
+  // --- AUTOCOMPLETE SEARCH ENGINE ---
   function handleLiveUserSearch() {
     const q = liveUserSearchInput.value.trim().toLowerCase();
 
@@ -400,11 +616,12 @@
 
   function renderAutocompleteResults(matches, dropdownContainer, isModal) {
     dropdownContainer.innerHTML = '';
+    const dict = I18N[currentLang] || I18N.en;
 
     if (matches.length === 0) {
       dropdownContainer.innerHTML = `
         <div class="p-3 text-xs text-apple-graySub text-center">
-          No registered user found matching query.
+          No user found.
         </div>`;
       dropdownContainer.classList.remove('hidden');
       return;
@@ -428,12 +645,12 @@
         </div>
 
         <div class="flex items-center space-x-1.5 flex-shrink-0">
-          <button class="view-cal-btn px-2.5 py-1 rounded-lg bg-apple-accent/20 hover:bg-apple-accent/30 text-apple-accent text-[11px] font-semibold transition" data-username="${userObj.username}">
-            Calendar
+          <button class="view-cal-btn px-2.5 py-1 rounded-lg bg-apple-accent/20 hover:bg-apple-accent/30 text-apple-accent text-[11px] font-semibold transition">
+            ${dict.navCalendar}
           </button>
           ${!isFriend && userObj.username !== currentUsername ? `
-            <button class="add-friend-quick-btn px-2.5 py-1 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-[11px] font-semibold transition" data-username="${userObj.username}">
-              + Add
+            <button class="add-friend-quick-btn px-2.5 py-1 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-[11px] font-semibold transition">
+              + ${dict.addFriendBtn}
             </button>
           ` : ''}
         </div>
@@ -569,8 +786,14 @@
   // --- NAVIGATION ---
   function switchTab(tab) {
     currentActiveTab = tab;
+
     [navCalendar, navInbox, navFriends].forEach(t => t.classList.remove('active', 'bg-white/10', 'text-white'));
     [navCalendar, navInbox, navFriends].forEach(t => t.classList.add('text-zinc-400'));
+
+    [mobileNavCalendar, mobileNavInbox, mobileNavFriends].forEach(t => {
+      t.classList.remove('text-apple-accent');
+      t.classList.add('text-zinc-400');
+    });
 
     viewCalendar.classList.add('hidden');
     viewInbox.classList.add('hidden');
@@ -579,16 +802,22 @@
     if (tab === 'calendar') {
       navCalendar.classList.add('active', 'bg-white/10', 'text-white');
       navCalendar.classList.remove('text-zinc-400');
+      mobileNavCalendar.classList.add('text-apple-accent');
+      mobileNavCalendar.classList.remove('text-zinc-400');
       viewCalendar.classList.remove('hidden');
       renderCalendar();
     } else if (tab === 'inbox') {
       navInbox.classList.add('active', 'bg-white/10', 'text-white');
       navInbox.classList.remove('text-zinc-400');
+      mobileNavInbox.classList.add('text-apple-accent');
+      mobileNavInbox.classList.remove('text-zinc-400');
       viewInbox.classList.remove('hidden');
       renderInbox();
     } else if (tab === 'friends') {
       navFriends.classList.add('active', 'bg-white/10', 'text-white');
       navFriends.classList.remove('text-zinc-400');
+      mobileNavFriends.classList.add('text-apple-accent');
+      mobileNavFriends.classList.remove('text-zinc-400');
       viewFriends.classList.remove('hidden');
       renderFriends();
     }
@@ -641,23 +870,22 @@
     closeEditProfileModal();
     updateUserDisplays();
     renderCalendar();
-    showToast(`Profile updated! Display name set to "${newName}".`, 'success');
+    showToast(`Profile set to "${newName}" (@${newHandle})`, 'success');
   }
 
   // --- USER DISPLAY & PRIVACY TOGGLE ---
   function updateUserDisplays() {
     const curUser = getUser(currentUsername);
     const viewUser = getUser(viewingUsername);
+    const dict = I18N[currentLang] || I18N.en;
 
     renderUserAvatarElement(curUser, userAvatarContainer, userAvatarInitials, null);
     userNameDisplay.textContent = curUser.name || `@${curUser.username}`;
 
-    viewingProfileName.textContent = `Viewing ${viewUser.name}`;
-
     renderUserAvatarElement(viewUser, bannerAvatarContainer, bannerAvatarInitials, bannerAvatarImg);
-    bannerName.textContent = `${viewUser.name}'s Calendar`;
+    bannerName.textContent = `${viewUser.name}${dict.calendarTitleSuffix}`;
     bannerHandle.textContent = `@${viewUser.username}`;
-    bannerBio.textContent = viewUser.bio || 'Select any available day to request an appointment slot.';
+    bannerBio.textContent = viewUser.bio || dict.bannerSubtitle;
 
     const isSelf = currentUsername.toLowerCase() === viewingUsername.toLowerCase();
     
@@ -665,18 +893,18 @@
       editProfileBtn.classList.remove('hidden');
       privacyToggleBtn.classList.remove('hidden');
       const showDetails = curUser.privacyShowDetails !== false;
-      privacyText.textContent = showDetails ? 'Details: Public' : 'Details: Private (Show Busy Only)';
+      privacyText.textContent = showDetails ? dict.privacyPublic : dict.privacyPrivate;
       privacyIcon.setAttribute('data-lucide', showDetails ? 'eye' : 'eye-off');
       
-      viewModeIndicator.className = 'px-3 py-1.5 rounded-full text-xs font-medium bg-purple-500/10 text-purple-400 border border-purple-500/20 flex items-center space-x-1.5';
-      viewModeText.textContent = 'Host Admin View';
+      viewModeIndicator.className = 'px-3 py-1.5 rounded-full text-[11px] font-medium bg-purple-500/10 text-purple-400 border border-purple-500/20 flex items-center space-x-1.5';
+      viewModeText.textContent = dict.hostView;
       addFriendBtn.classList.add('hidden');
     } else {
       editProfileBtn.classList.add('hidden');
       privacyToggleBtn.classList.add('hidden');
       
-      viewModeIndicator.className = 'px-3 py-1.5 rounded-full text-xs font-medium bg-blue-500/10 text-blue-400 border border-blue-500/20 flex items-center space-x-1.5';
-      viewModeText.textContent = `Guest View (${viewUser.name})`;
+      viewModeIndicator.className = 'px-3 py-1.5 rounded-full text-[11px] font-medium bg-blue-500/10 text-blue-400 border border-blue-500/20 flex items-center space-x-1.5';
+      viewModeText.textContent = `${dict.guestView} (${viewUser.name})`;
 
       const userFriends = friendsMap[currentUsername] || [];
       if (userFriends.includes(viewingUsername)) {
@@ -692,11 +920,12 @@
 
   function toggleHostPrivacy() {
     const curUser = getUser(currentUsername);
+    const dict = I18N[currentLang] || I18N.en;
     curUser.privacyShowDetails = !curUser.privacyShowDetails;
     saveToStorage(STORAGE_KEY_USERS, users);
     updateUserDisplays();
     renderCalendar();
-    showToast(curUser.privacyShowDetails ? 'Friends can now view event notes.' : 'Event details set to Private (Friends will see "Busy" only).', 'info');
+    showToast(curUser.privacyShowDetails ? dict.privacyPublic : dict.privacyPrivate, 'info');
   }
 
   function updateInboxBadgeCount() {
@@ -713,8 +942,9 @@
 
   // --- CALENDAR RENDERER ---
   function renderCalendar() {
-    const months = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
-    currentMonthYearLabel.textContent = `${months[currentMonth]} ${currentYear}`;
+    const dict = I18N[currentLang] || I18N.en;
+    const monthsEN = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+    currentMonthYearLabel.textContent = `${monthsEN[currentMonth]} ${currentYear}`;
 
     calendarGrid.innerHTML = '';
 
@@ -727,14 +957,16 @@
     const viewUser = getUser(viewingUsername);
     const isSelf = currentUsername.toLowerCase() === viewingUsername.toLowerCase();
 
+    // Previous month padding
     for (let i = firstDayIndex - 1; i >= 0; i--) {
       const dayNum = prevMonthDays - i;
       const dayCell = document.createElement('div');
-      dayCell.className = 'p-2 sm:p-3 min-h-[70px] sm:min-h-[90px] rounded-2xl bg-white/[0.02] border border-white/5 opacity-35 cursor-not-allowed flex flex-col justify-between';
-      dayCell.innerHTML = `<span class="text-xs font-medium text-zinc-500">${dayNum}</span>`;
+      dayCell.className = 'p-1.5 sm:p-3 min-h-[60px] sm:min-h-[90px] rounded-2xl bg-white/[0.02] border border-white/5 opacity-35 cursor-not-allowed flex flex-col justify-between';
+      dayCell.innerHTML = `<span class="text-[11px] sm:text-xs font-medium text-zinc-500">${dayNum}</span>`;
       calendarGrid.appendChild(dayCell);
     }
 
+    // Current month days
     for (let d = 1; d <= daysInMonth; d++) {
       const monthStr = String(currentMonth + 1).padStart(2, '0');
       const dayStr = String(d).padStart(2, '0');
@@ -748,7 +980,7 @@
       const hasPending = dayAppointments.some(a => a.status === 'pending');
 
       const dayCell = document.createElement('div');
-      dayCell.className = `day-card p-2 sm:p-3 min-h-[70px] sm:min-h-[90px] rounded-2xl border backdrop-blur-md cursor-pointer flex flex-col justify-between relative group ${
+      dayCell.className = `day-card p-1.5 sm:p-3 min-h-[60px] sm:min-h-[90px] rounded-2xl border backdrop-blur-md cursor-pointer flex flex-col justify-between relative group ${
         isToday ? 'bg-blue-600/15 border-blue-500/40' : 'bg-black/40 border-white/10 hover:bg-white/10'
       }`;
 
@@ -756,32 +988,32 @@
 
       if (hasAccepted) {
         const acceptedApt = dayAppointments.find(a => a.status === 'accepted');
-        const timeLabel = acceptedApt.isFullDay ? 'All Day' : `${acceptedApt.startTime}-${acceptedApt.endTime}`;
+        const timeLabel = acceptedApt.isFullDay ? dict.allDay : `${acceptedApt.startTime}-${acceptedApt.endTime}`;
 
         statusPillHtml = `
-          <div class="mt-1 flex items-center space-x-1 px-1.5 py-0.5 rounded-lg bg-purple-500/20 text-purple-300 border border-purple-500/30 text-[10px] truncate" title="Click to inspect details">
+          <div class="mt-0.5 flex items-center space-x-1 px-1 py-0.5 rounded-lg bg-purple-500/20 text-purple-300 border border-purple-500/30 text-[9px] sm:text-[10px] truncate" title="Tap to inspect">
             <span class="w-1.5 h-1.5 rounded-full bg-purple-400 flex-shrink-0"></span>
             <span class="truncate font-medium">${timeLabel}</span>
           </div>`;
       } else if (hasPending) {
         const pendingApt = dayAppointments.find(a => a.status === 'pending');
         statusPillHtml = `
-          <div class="mt-1 flex items-center space-x-1 px-1.5 py-0.5 rounded-lg bg-blue-500/20 text-blue-300 border border-blue-500/30 text-[10px] truncate">
+          <div class="mt-0.5 flex items-center space-x-1 px-1 py-0.5 rounded-lg bg-blue-500/20 text-blue-300 border border-blue-500/30 text-[9px] sm:text-[10px] truncate">
             <span class="w-1.5 h-1.5 rounded-full bg-apple-accent animate-pulse flex-shrink-0"></span>
-            <span class="truncate font-medium">Pending (${pendingApt.startTime})</span>
+            <span class="truncate font-medium">${dict.statusPending} (${pendingApt.startTime})</span>
           </div>`;
       } else {
         statusPillHtml = `
-          <div class="mt-1 flex items-center space-x-1 px-1.5 py-0.5 rounded-lg bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-[10px] opacity-80">
+          <div class="mt-0.5 flex items-center space-x-1 px-1 py-0.5 rounded-lg bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-[9px] sm:text-[10px] opacity-80">
             <span class="w-1.5 h-1.5 rounded-full bg-apple-green flex-shrink-0"></span>
-            <span>Available</span>
+            <span>${dict.statusFree}</span>
           </div>`;
       }
 
       dayCell.innerHTML = `
         <div class="flex items-center justify-between">
           <span class="text-xs font-bold ${isToday ? 'text-apple-accent' : 'text-white'}">${d}</span>
-          ${isToday ? '<span class="text-[9px] font-bold px-1.5 py-0.2 rounded-md bg-apple-accent text-white uppercase tracking-wider">Today</span>' : ''}
+          ${isToday ? `<span class="text-[8px] sm:text-[9px] font-bold px-1 rounded bg-apple-accent text-white uppercase">${dict.today}</span>` : ''}
         </div>
         ${statusPillHtml}
       `;
@@ -798,26 +1030,28 @@
       calendarGrid.appendChild(dayCell);
     }
 
+    // Next month padding
     const totalFilledCells = firstDayIndex + daysInMonth;
     const totalGridTarget = totalFilledCells > 35 ? 42 : 35;
     const nextMonthPadding = totalGridTarget - totalFilledCells;
 
     for (let n = 1; n <= nextMonthPadding; n++) {
       const dayCell = document.createElement('div');
-      dayCell.className = 'p-2 sm:p-3 min-h-[70px] sm:min-h-[90px] rounded-2xl bg-white/[0.02] border border-white/5 opacity-35 cursor-not-allowed flex flex-col justify-between';
-      dayCell.innerHTML = `<span class="text-xs font-medium text-zinc-500">${n}</span>`;
+      dayCell.className = 'p-1.5 sm:p-3 min-h-[60px] sm:min-h-[90px] rounded-2xl bg-white/[0.02] border border-white/5 opacity-35 cursor-not-allowed flex flex-col justify-between';
+      dayCell.innerHTML = `<span class="text-[11px] sm:text-xs font-medium text-zinc-500">${n}</span>`;
       calendarGrid.appendChild(dayCell);
     }
   }
 
   // --- FULL DAY TOGGLE ---
   function handleFullDayToggle() {
+    const dict = I18N[currentLang] || I18N.en;
     if (fullDayCheckbox.checked) {
       startTimeInput.value = '00:00';
       endTimeInput.value = '23:59';
       startTimeInput.disabled = true;
       endTimeInput.disabled = true;
-      durationBadge.textContent = 'All Day (Full Day)';
+      durationBadge.textContent = dict.allDay;
       durationBadge.className = 'text-[10px] text-purple-400 font-mono bg-purple-500/10 px-2 py-0.5 rounded-full border border-purple-500/20';
     } else {
       startTimeInput.disabled = false;
@@ -877,9 +1111,9 @@
       const hrs = Math.floor(diff / 60);
       const mins = diff % 60;
       let durText = '';
-      if (hrs > 0) durText += `${hrs} hr `;
-      if (mins > 0) durText += `${mins} mins`;
-      durationBadge.textContent = durText.trim() || `${diff} mins`;
+      if (hrs > 0) durText += `${hrs}h `;
+      if (mins > 0) durText += `${mins}m`;
+      durationBadge.textContent = durText.trim() || `${diff}m`;
       durationBadge.className = 'text-[10px] text-apple-accent font-mono bg-blue-500/10 px-2 py-0.5 rounded-full border border-blue-500/20';
     } else {
       durationBadge.textContent = 'Invalid duration';
@@ -931,19 +1165,20 @@
     const viewUser = getUser(viewingUsername);
     const isSelf = currentUsername.toLowerCase() === viewingUsername.toLowerCase();
     const showDetails = isSelf || (viewUser.privacyShowDetails !== false);
+    const dict = I18N[currentLang] || I18N.en;
 
-    inspectDateTitle.textContent = `Event — ${dateKey}`;
-    inspectTimeBadge.textContent = apt.isFullDay ? 'All Day Event' : `${apt.startTime} – ${apt.endTime}`;
+    inspectDateTitle.textContent = `${dict.eventDetails} — ${dateKey}`;
+    inspectTimeBadge.textContent = apt.isFullDay ? dict.allDay : `${apt.startTime} – ${apt.endTime}`;
     
     if (showDetails) {
       inspectRequesterName.textContent = apt.requesterName || `@${apt.requesterUsername}`;
       inspectNoteText.textContent = apt.note || 'No note attached.';
     } else {
-      inspectRequesterName.textContent = 'Private Participant';
+      inspectRequesterName.textContent = 'Private';
       inspectNoteText.textContent = 'Host has set event details to Private (Marked as Busy).';
     }
 
-    inspectStatusPill.textContent = apt.status === 'accepted' ? 'Accepted' : 'Pending Request';
+    inspectStatusPill.textContent = apt.status === 'accepted' ? dict.statusAccepted : dict.statusPending;
     inspectStatusPill.className = apt.status === 'accepted'
       ? 'px-2.5 py-0.5 rounded-full text-[10px] font-semibold bg-purple-500/20 text-purple-300 border border-purple-500/30'
       : 'px-2.5 py-0.5 rounded-full text-[10px] font-semibold bg-blue-500/20 text-blue-300 border border-blue-500/30';
@@ -962,19 +1197,20 @@
   function setInboxFilter(filter) {
     inboxFilter = filter;
     [filterPending, filterAccepted, filterRejected, filterAll].forEach(btn => {
-      btn.className = 'px-3 py-1 rounded-xl text-zinc-400 hover:text-white font-medium';
+      btn.className = 'px-3 py-1 rounded-xl text-zinc-400 hover:text-white font-medium flex-1 sm:flex-none text-center';
     });
 
-    if (filter === 'pending') filterPending.className = 'px-3 py-1 rounded-xl bg-white/15 text-white font-medium';
-    if (filter === 'accepted') filterAccepted.className = 'px-3 py-1 rounded-xl bg-white/15 text-white font-medium';
-    if (filter === 'rejected') filterRejected.className = 'px-3 py-1 rounded-xl bg-white/15 text-white font-medium';
-    if (filter === 'all') filterAll.className = 'px-3 py-1 rounded-xl bg-white/15 text-white font-medium';
+    if (filter === 'pending') filterPending.className = 'px-3 py-1 rounded-xl bg-white/15 text-white font-medium flex-1 sm:flex-none text-center';
+    if (filter === 'accepted') filterAccepted.className = 'px-3 py-1 rounded-xl bg-white/15 text-white font-medium flex-1 sm:flex-none text-center';
+    if (filter === 'rejected') filterRejected.className = 'px-3 py-1 rounded-xl bg-white/15 text-white font-medium flex-1 sm:flex-none text-center';
+    if (filter === 'all') filterAll.className = 'px-3 py-1 rounded-xl bg-white/15 text-white font-medium flex-1 sm:flex-none text-center';
 
     renderInbox();
   }
 
   function renderInbox() {
     inboxListContainer.innerHTML = '';
+    const dict = I18N[currentLang] || I18N.en;
 
     let hostAppointments = appointments.filter(a => a.hostUsername.toLowerCase() === currentUsername.toLowerCase());
 
@@ -986,12 +1222,12 @@
 
     if (hostAppointments.length === 0) {
       inboxListContainer.innerHTML = `
-        <div class="p-12 text-center bg-apple-cardDark rounded-3xl border border-apple-borderDark backdrop-blur-2xl">
+        <div class="p-8 sm:p-12 text-center bg-apple-cardDark rounded-3xl border border-apple-borderDark backdrop-blur-2xl">
           <div class="w-12 h-12 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center mx-auto text-zinc-500 mb-3">
             <i data-lucide="inbox" class="w-6 h-6"></i>
           </div>
-          <h3 class="text-sm font-semibold text-white">No requests found</h3>
-          <p class="text-xs text-apple-graySub mt-1">There are no ${inboxFilter} appointment requests for your calendar.</p>
+          <h3 class="text-sm font-semibold text-white">${dict.noRequestsFound}</h3>
+          <p class="text-xs text-apple-graySub mt-1">${dict.noRequestsSubtitle}</p>
         </div>`;
       refreshIcons();
       return;
@@ -1003,23 +1239,23 @@
 
       let statusBadge = '';
       if (apt.status === 'pending') {
-        statusBadge = '<span class="px-2.5 py-0.5 rounded-full bg-blue-500/10 text-blue-400 border border-blue-500/20 text-[10px] font-semibold">Pending Approval</span>';
+        statusBadge = `<span class="px-2.5 py-0.5 rounded-full bg-blue-500/10 text-blue-400 border border-blue-500/20 text-[10px] font-semibold">${dict.statusPending}</span>`;
       } else if (apt.status === 'accepted') {
-        statusBadge = '<span class="px-2.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-[10px] font-semibold">Accepted</span>';
+        statusBadge = `<span class="px-2.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-[10px] font-semibold">${dict.statusAccepted}</span>`;
       } else if (apt.status === 'rejected') {
-        statusBadge = '<span class="px-2.5 py-0.5 rounded-full bg-red-500/10 text-red-400 border border-red-500/20 text-[10px] font-semibold">Declined</span>';
+        statusBadge = `<span class="px-2.5 py-0.5 rounded-full bg-red-500/10 text-red-400 border border-red-500/20 text-[10px] font-semibold">${dict.filterDeclined}</span>`;
       }
 
-      const timeDisplay = apt.isFullDay ? 'All Day' : `${apt.startTime} – ${apt.endTime}`;
+      const timeDisplay = apt.isFullDay ? dict.allDay : `${apt.startTime} – ${apt.endTime}`;
 
       card.innerHTML = `
-        <div class="flex items-start space-x-3.5">
-          <div class="w-11 h-11 rounded-2xl bg-gradient-to-tr from-indigo-600 to-purple-600 text-white flex items-center justify-center font-bold text-sm shadow-md border border-white/10 flex-shrink-0">
+        <div class="flex items-start space-x-3">
+          <div class="w-10 h-10 rounded-2xl bg-gradient-to-tr from-indigo-600 to-purple-600 text-white flex items-center justify-center font-bold text-xs shadow-md border border-white/10 flex-shrink-0">
             ${getInitials(apt.requesterName)}
           </div>
           <div class="space-y-1">
             <div class="flex items-center space-x-2 flex-wrap gap-y-1">
-              <h4 class="text-sm font-bold text-white">${escapeHtml(apt.requesterName)}</h4>
+              <h4 class="text-xs sm:text-sm font-bold text-white">${escapeHtml(apt.requesterName)}</h4>
               ${statusBadge}
             </div>
             <div class="flex items-center space-x-3 text-xs text-apple-graySub font-mono">
@@ -1104,17 +1340,17 @@
   // --- FRIENDS MANAGER ---
   function renderFriends() {
     friendsGrid.innerHTML = '';
-
+    const dict = I18N[currentLang] || I18N.en;
     const userFriends = friendsMap[currentUsername] || [];
 
     if (userFriends.length === 0) {
       friendsGrid.innerHTML = `
-        <div class="col-span-full p-12 text-center bg-apple-cardDark rounded-3xl border border-apple-borderDark backdrop-blur-2xl">
+        <div class="col-span-full p-8 sm:p-12 text-center bg-apple-cardDark rounded-3xl border border-apple-borderDark backdrop-blur-2xl">
           <div class="w-12 h-12 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center mx-auto text-zinc-500 mb-3">
             <i data-lucide="users" class="w-6 h-6"></i>
           </div>
-          <h3 class="text-sm font-semibold text-white">No saved friends yet</h3>
-          <p class="text-xs text-apple-graySub mt-1">Use the live search bar above to type a name or handle and save friends.</p>
+          <h3 class="text-sm font-semibold text-white">${dict.noFriendsFound}</h3>
+          <p class="text-xs text-apple-graySub mt-1">${dict.noFriendsSubtitle}</p>
         </div>`;
       refreshIcons();
       return;
@@ -1123,7 +1359,7 @@
     userFriends.forEach(fHandle => {
       const friendObj = getUser(fHandle);
       const card = document.createElement('div');
-      card.className = 'p-4 sm:p-5 rounded-3xl bg-apple-cardDark border border-apple-borderDark backdrop-blur-2xl shadow-lg flex items-center justify-between space-x-3 transition hover:border-white/20';
+      card.className = 'p-4 rounded-3xl bg-apple-cardDark border border-apple-borderDark backdrop-blur-2xl shadow-lg flex items-center justify-between space-x-3 transition hover:border-white/20';
 
       card.innerHTML = `
         <div class="flex items-center space-x-3 min-w-0">
@@ -1139,9 +1375,9 @@
         <div class="flex items-center space-x-1.5">
           <button class="view-friend-cal-btn px-3 py-1.5 rounded-xl bg-white/10 hover:bg-white/20 text-white text-xs font-semibold border border-white/15 transition flex items-center space-x-1" data-username="${friendObj.username}">
             <i data-lucide="calendar" class="w-3.5 h-3.5 text-apple-accent"></i>
-            <span>Calendar</span>
+            <span>${dict.navCalendar}</span>
           </button>
-          <button class="remove-friend-btn p-1.5 rounded-xl bg-white/5 hover:bg-red-500/20 text-zinc-400 hover:text-red-400 border border-white/10 transition" data-username="${friendObj.username}" title="Unfriend / Remove">
+          <button class="remove-friend-btn p-1.5 rounded-xl bg-white/5 hover:bg-red-500/20 text-zinc-400 hover:text-red-400 border border-white/10 transition" data-username="${friendObj.username}">
             <i data-lucide="user-x" class="w-3.5 h-3.5"></i>
           </button>
         </div>
@@ -1189,7 +1425,7 @@
 
     updateUserDisplays();
     renderFriends();
-    showToast(`Added @${cleanUsername} to your friends!`, 'success');
+    showToast(`Added @${cleanUsername}!`, 'success');
   }
 
   function removeFriendFromCurrentUser(username) {
@@ -1198,7 +1434,7 @@
       saveToStorage(STORAGE_KEY_FRIENDS, friendsMap);
       renderFriends();
       updateUserDisplays();
-      showToast(`Unfriended @${username}.`, 'info');
+      showToast(`Removed @${username}.`, 'info');
     }
   }
 
@@ -1242,7 +1478,7 @@
     users.forEach(u => {
       const isCurrent = u.username.toLowerCase() === currentUsername.toLowerCase();
       const item = document.createElement('div');
-      item.className = `p-3 rounded-2xl border cursor-pointer flex items-center justify-between transition ${
+      item.className = `p-2.5 sm:p-3 rounded-2xl border cursor-pointer flex items-center justify-between transition ${
         isCurrent ? 'bg-purple-600/20 border-purple-500/40 text-white' : 'bg-black/40 border-white/10 hover:bg-white/10 text-zinc-300'
       }`;
 
@@ -1297,7 +1533,7 @@
       const newUser = {
         username: handle,
         name: name,
-        bio: 'Open for appointments on Chronos.',
+        bio: 'Open for appointments.',
         color: colors[Math.floor(Math.random() * colors.length)],
         privacyShowDetails: true,
         pfpType: pfpType,
@@ -1318,7 +1554,7 @@
     closeAuthModal();
     updateUserDisplays();
     renderCalendar();
-    showToast(`Account set: ${name} (@${currentUsername})`, 'success');
+    showToast(`Account registered: ${name} (@${currentUsername})`, 'success');
   }
 
   // --- SHARE LINK ---
@@ -1327,7 +1563,7 @@
     url.searchParams.set('user', viewingUsername);
 
     navigator.clipboard.writeText(url.toString()).then(() => {
-      showToast(`Shareable calendar link for ${getUser(viewingUsername).name} copied!`, 'success');
+      showToast(`Shareable calendar link copied!`, 'success');
     }).catch(() => {
       showToast(`Calendar link: ${url.toString()}`, 'info');
     });

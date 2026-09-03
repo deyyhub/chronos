@@ -1,4 +1,4 @@
-/* Apple SF Pro typography & custom UI polish */
+/* Apple SF Pro typography & mobile UI polish */
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
 
 :root {
@@ -9,6 +9,15 @@ body {
   font-family: var(--apple-font);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  padding-top: env(safe-area-inset-top);
+}
+
+/* Safe area padding utilities for iPhones & notch displays */
+.pb-safe {
+  padding-bottom: max(0.75rem, env(safe-area-inset-bottom));
+}
+.pt-safe {
+  padding-top: max(0.5rem, env(safe-area-inset-top));
 }
 
 /* Hide scrollbars for overflow chips while keeping scrollable */
@@ -22,8 +31,8 @@ body {
 
 /* Custom Scrollbar for Apple feel */
 ::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
+  width: 5px;
+  height: 5px;
 }
 ::-webkit-scrollbar-track {
   background: rgba(0, 0, 0, 0.2);
@@ -41,20 +50,23 @@ body {
   transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
   user-select: none;
   -webkit-user-select: none;
+  -webkit-touch-callout: none;
 }
 
-.day-card:hover {
-  transform: translateY(-2px);
-  border-color: rgba(255, 255, 255, 0.3);
-  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.5);
+@media (min-width: 640px) {
+  .day-card:hover {
+    transform: translateY(-2px);
+    border-color: rgba(255, 255, 255, 0.3);
+    box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.5);
+  }
 }
 
 .day-card:active {
-  transform: scale(0.97);
+  transform: scale(0.96);
   opacity: 0.9;
 }
 
-/* Smooth modal & sheet drawer entry */
+/* Mobile Sheet Drawer & Desktop Modal Entry */
 .modal-open {
   opacity: 1 !important;
 }
