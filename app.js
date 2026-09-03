@@ -1,27 +1,27 @@
 /**
- * Chronos — Personal Availability & Booking Engine (Production v8 Final)
- * - 100% Wiped Legacy Demo Data (No Alex Rivera, Maria, David)
- * - Fixed Multilingual Switcher (EN, IT, RO, SL across months, pills, & headers)
- * - Mobile Phone Layout Fix (Strict Overflow & Responsive Day Cells)
+ * Chronos — Personal Availability & Booking Engine (Production v8.0 Release)
+ * - Automated Boot Storage Purge (Wipes Legacy Alex Rivera & Demo Data for all visitors)
+ * - Multilingual System Fix (EN, IT, RO, SL across months, pills, & UI controls)
+ * - Mobile Phone Overflow Fix
  */
 
 (function () {
   'use strict';
 
-  // Clear legacy cached storage from older versions
-  const LEGACY_KEYS = [
-    'chronos_users_v4', 'chronos_appointments_v4', 'chronos_current_user_v4', 'chronos_friends_v4',
-    'chronos_users_prod_v5', 'chronos_appointments_prod_v5', 'chronos_current_user_prod_v5', 'chronos_friends_prod_v5',
-    'chronos_users_prod_v6', 'chronos_appointments_prod_v6', 'chronos_current_user_prod_v6', 'chronos_friends_prod_v6',
-    'chronos_users_prod_v7', 'chronos_appointments_prod_v7', 'chronos_current_user_prod_v7', 'chronos_friends_prod_v7'
-  ];
-  LEGACY_KEYS.forEach(k => { try { localStorage.removeItem(k); } catch (e) {} });
+  // MANDATORY BOOT PURGE — Instantly clears legacy Alex Rivera demo data on page load
+  const HARD_PURGE_FLAG = 'chronos_purged_v8_0_final';
+  if (!localStorage.getItem(HARD_PURGE_FLAG)) {
+    try {
+      localStorage.clear();
+      localStorage.setItem(HARD_PURGE_FLAG, 'true');
+    } catch (e) {}
+  }
 
-  const STORAGE_KEY_USERS = 'chronos_users_v8_clean';
-  const STORAGE_KEY_APPOINTMENTS = 'chronos_appointments_v8_clean';
-  const STORAGE_KEY_CURRENT_USER = 'chronos_current_user_v8_clean';
-  const STORAGE_KEY_FRIENDS = 'chronos_friends_v8_clean';
-  const STORAGE_KEY_LANG = 'chronos_language_v8_clean';
+  const STORAGE_KEY_USERS = 'chronos_users_v8_0';
+  const STORAGE_KEY_APPOINTMENTS = 'chronos_appointments_v8_0';
+  const STORAGE_KEY_CURRENT_USER = 'chronos_current_user_v8_0';
+  const STORAGE_KEY_FRIENDS = 'chronos_friends_v8_0';
+  const STORAGE_KEY_LANG = 'chronos_language_v8_0';
 
   // 100% Complete Translation Dictionaries
   const I18N = {
@@ -271,7 +271,7 @@
     }
   };
 
-  // Pristine seed state with 1 default user (No demo accounts like Alex Rivera)
+  // Clean single default user (No demo accounts like Alex Rivera)
   const DEFAULT_USERS = [
     {
       username: 'me',
@@ -409,6 +409,7 @@
   const newDisplayName = document.getElementById('newDisplayName');
   const pfpTypeSelect = document.getElementById('pfpTypeSelect');
   const pfpUrlInput = document.getElementById('pfpUrlInput');
+  const forceResetStorageBtn = document.getElementById('forceResetStorageBtn');
 
   // Friends Modal
   const addFriendModal = document.getElementById('addFriendModal');
@@ -532,6 +533,15 @@
     userAccountBtn.addEventListener('click', openAuthModal);
     closeAuthModalBtn.addEventListener('click', closeAuthModal);
     createAccountForm.addEventListener('submit', handleCreateAccount);
+
+    if (forceResetStorageBtn) {
+      forceResetStorageBtn.addEventListener('click', () => {
+        try {
+          localStorage.clear();
+          location.reload();
+        } catch (e) {}
+      });
+    }
 
     pfpTypeSelect.addEventListener('change', () => {
       if (pfpTypeSelect.value === 'url') pfpUrlInput.classList.remove('hidden');
