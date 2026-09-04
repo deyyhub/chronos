@@ -1,26 +1,73 @@
 /**
- * Chronos — Personal Availability & Booking Engine (Production v10.1 No-Reload Fix)
- * - Fixed native HTML form submission reload (Blocked `?` URL query bug)
- * - Zero forced popups, instant calendar boot
+ * Chronos — Personal Availability & Booking Engine (Production v11.0 Machine Cookie & Account System)
+ * Features:
+ * - Dual Storage: Persistent 1-Year Cookie (`document.cookie`) + LocalStorage Machine ID
+ * - Instant Seamless Account Registration & Login (Name & Handle)
+ * - Machine Device Fingerprint Verification (`chronos_machine_id`)
  * - Strict Host vs Guest Access Control
- * - Multilingual System (EN, IT, RO, SL)
+ * - Multilingual Support (EN, IT, RO, SL)
  */
 
 (function () {
   'use strict';
 
-  const STORAGE_KEY_DEVICE_UID = 'chronos_device_uid_v10_1';
-  const STORAGE_KEY_USERS = 'chronos_users_v10_1';
-  const STORAGE_KEY_APPOINTMENTS = 'chronos_appointments_v10_1';
-  const STORAGE_KEY_CURRENT_USER = 'chronos_current_user_v10_1';
-  const STORAGE_KEY_FRIENDS = 'chronos_friends_v10_1';
-  const STORAGE_KEY_LANG = 'chronos_language_v10_1';
+  // --- COOKIE HELPERS (1-Year Expiration for Mobile Browsers & iPhones) ---
+  function setCookie(name, value, days = 365) {
+    try {
+      const d = new Date();
+      d.setTime(d.getTime() + (days * 24 * 60 * 60 * 1000));
+      const expires = "expires=" + d.toUTCString();
+      document.cookie = name + "=" + encodeURIComponent(JSON.stringify(value)) + ";" + expires + ";path=/;SameSite=Lax";
+    } catch (e) {}
+  }
 
-  // Retrieve persistent Device UID
-  let deviceUid = localStorage.getItem(STORAGE_KEY_DEVICE_UID);
-  if (!deviceUid) {
-    deviceUid = 'dev_' + Date.now() + '_' + Math.random().toString(36).substr(2, 6);
-    localStorage.setItem(STORAGE_KEY_DEVICE_UID, deviceUid);
+  function getCookie(name) {
+    try {
+      const nameEQ = name + "=";
+      const ca = document.cookie.split(';');
+      for (let i = 0; i < ca.length; i++) {
+        let c = ca[i].trim();
+        if (c.indexOf(nameEQ) === 0) {
+          const val = decodeURIComponent(c.substring(nameEQ.length, c.length));
+          return JSON.parse(val);
+        }
+      }
+    } catch (e) {}
+    return null;
+  }
+
+  function loadStorageOrCookie(key, fallback) {
+    try {
+      const localData = localStorage.getItem(key);
+      if (localData) return JSON.parse(localData);
+    } catch (e) {}
+
+    const cookieData = getCookie(key);
+    if (cookieData !== null) return cookieData;
+
+    return fallback;
+  }
+
+  function saveStorageAndCookie(key, val) {
+    try {
+      localStorage.setItem(key, JSON.stringify(val));
+    } catch (e) {}
+    setCookie(key, val);
+  }
+
+  // --- STORAGE KEYS ---
+  const KEY_MACHINE_ID = 'chronos_machine_id_v11';
+  const KEY_USERS = 'chronos_users_v11';
+  const KEY_APPOINTMENTS = 'chronos_appointments_v11';
+  const KEY_CURRENT_USER = 'chronos_current_user_v11';
+  const KEY_FRIENDS = 'chronos_friends_v11';
+  const KEY_LANG = 'chronos_language_v11';
+
+  // Persistent Machine / Device ID
+  let machineId = loadStorageOrCookie(KEY_MACHINE_ID, null);
+  if (!machineId) {
+    machineId = 'mid_' + Date.now() + '_' + Math.random().toString(36).substr(2, 8);
+    saveStorageAndCookie(KEY_MACHINE_ID, machineId);
   }
 
   // Translation Dictionaries
@@ -65,12 +112,12 @@
       usernameLabel: 'Username Handle',
       bioLabel: 'Profile Bio',
       saveChanges: 'Save Changes',
-      accountManagerTitle: 'Account & Profile Switcher',
-      accountManagerSubtitle: 'Switch active profile or register new handle.',
-      registeredAccounts: 'Registered Profiles',
-      orRegister: 'Or Register Profile',
+      accountManagerTitle: 'Account & Login Manager',
+      accountManagerSubtitle: 'Register a new account or switch profiles on this device.',
+      registeredAccounts: 'Accounts Saved on Device',
+      orRegister: 'Create New Account',
       pfpOptionLabel: 'Avatar PFP Option',
-      registerBtn: 'Save & Switch Profile',
+      registerBtn: 'Create Account & Log In',
       addFriendModalTitle: 'Save Friend Calendar',
       addFriendModalSubtitle: 'Type handle to search live user suggestions.',
       searchHandleLabel: 'Search Handle or Name',
@@ -84,7 +131,8 @@
       noFriendsFound: 'No saved friends yet',
       noFriendsSubtitle: 'Use the search bar above to type a handle or name and save friends.',
       searchPlaceholder: 'Search name or handle...',
-      calendarTitleSuffix: "'s Calendar"
+      calendarTitleSuffix: "'s Calendar",
+      loginRegister: 'Log In / Register'
     },
     it: {
       months: ['Gennaio', 'Febbraio', 'Marzo', 'Aprile', 'Maggio', 'Giugno', 'Luglio', 'Agosto', 'Settembre', 'Ottobre', 'Novembre', 'Dicembre'],
@@ -126,12 +174,12 @@
       usernameLabel: 'Handle Username',
       bioLabel: 'Bio del profilo',
       saveChanges: 'Salva modifiche',
-      accountManagerTitle: 'Gestione account e PFP',
-      accountManagerSubtitle: 'Cambia utente attivo o registra un nuovo account.',
-      registeredAccounts: 'Account registrati',
-      orRegister: 'O registra account',
+      accountManagerTitle: 'Gestione account e Login',
+      accountManagerSubtitle: 'Registra un nuovo account o cambia profilo su questo dispositivo.',
+      registeredAccounts: 'Account salvati sul dispositivo',
+      orRegister: 'Crea nuovo account',
       pfpOptionLabel: 'Opzione Avatar PFP',
-      registerBtn: 'Registra e cambia account',
+      registerBtn: 'Crea account e accedi',
       addFriendModalTitle: 'Salva calendario amico',
       addFriendModalSubtitle: 'Digita handle per cercare suggerimenti live.',
       searchHandleLabel: 'Cerca handle o nome',
@@ -145,7 +193,8 @@
       noFriendsFound: 'Nessun amico salvato',
       noFriendsSubtitle: 'Usa la barra di ricerca sopra per cercare un nome e salvare amici.',
       searchPlaceholder: 'Cerca nome o username...',
-      calendarTitleSuffix: ' - Calendario'
+      calendarTitleSuffix: ' - Calendario',
+      loginRegister: 'Accedi / Registrati'
     },
     ro: {
       months: ['Ianuarie', 'Februarie', 'Martie', 'Aprilie', 'Mai', 'Iunie', 'Iulie', 'August', 'Septembrie', 'Octombrie', 'Noiembrie', 'Decembrie'],
@@ -187,12 +236,12 @@
       usernameLabel: 'Nume utilizator (Handle)',
       bioLabel: 'Descriere profil',
       saveChanges: 'Salvează modificările',
-      accountManagerTitle: 'Administrare conturi și PFP',
-      accountManagerSubtitle: 'Schimbă utilizatorul activ sau înregistrează un cont nou.',
-      registeredAccounts: 'Conturi înregistrate',
-      orRegister: 'Sau înregistrează cont',
+      accountManagerTitle: 'Administrare conturi și Autentificare',
+      accountManagerSubtitle: 'Înregistrează un cont nou sau schimbă profilul pe acest dispozitiv.',
+      registeredAccounts: 'Conturi salvate pe dispozitiv',
+      orRegister: 'Creează cont nou',
       pfpOptionLabel: 'Opțiune Avatar PFP',
-      registerBtn: 'Înregistrează și schimbă contul',
+      registerBtn: 'Creează cont și autentifică-te',
       addFriendModalTitle: 'Salvează calendarul prietenului',
       addFriendModalSubtitle: 'Tastează utilizatorul pentru căutare live.',
       searchHandleLabel: 'Caută utilizator sau nume',
@@ -206,7 +255,8 @@
       noFriendsFound: 'Niciun prieten salvat încă',
       noFriendsSubtitle: 'Folosește bara de căutare de mai sus pentru a căuta și salva prieteni.',
       searchPlaceholder: 'Caută nume sau utilizator...',
-      calendarTitleSuffix: ' - Calendar'
+      calendarTitleSuffix: ' - Calendar',
+      loginRegister: 'Autentificare / Înregistrare'
     },
     sl: {
       months: ['Januar', 'Februar', 'Marec', 'April', 'Maj', 'Junij', 'Julij', 'Avgust', 'September', 'Oktober', 'November', 'December'],
@@ -248,12 +298,12 @@
       usernameLabel: 'Uporabniško ime (Handle)',
       bioLabel: 'Opis profila',
       saveChanges: 'Shrani spremembe',
-      accountManagerTitle: 'Upravitelj računov in PFP',
-      accountManagerSubtitle: 'Preklopite aktivnega uporabnika ali registrirajte nov račun.',
-      registeredAccounts: 'Registrirani računi',
-      orRegister: 'Ali registrirajte račun',
+      accountManagerTitle: 'Upravitelj računov in Prijava',
+      accountManagerSubtitle: 'Registrirajte nov račun ali preklopite profil na tej napravi.',
+      registeredAccounts: 'Računi shranjeni na napravi',
+      orRegister: 'Ustvari nov račun',
       pfpOptionLabel: 'Možnost Avatar PFP',
-      registerBtn: 'Registriraj in preklopi račun',
+      registerBtn: 'Ustvari račun in se prijavi',
       addFriendModalTitle: 'Shrani koledar prijatelja',
       addFriendModalSubtitle: 'Vtipkajte uporabniško ime za iskanje v živo.',
       searchHandleLabel: 'Išči uporabniško ime ali ime',
@@ -267,13 +317,14 @@
       noFriendsFound: 'Še ni shranjenih prijateljev',
       noFriendsSubtitle: 'Uporabite iskalno vrstico zgoraj za iskanje in shranjevanje prijateljev.',
       searchPlaceholder: 'Išči ime ali uporabniško ime...',
-      calendarTitleSuffix: ' - Koledar'
+      calendarTitleSuffix: ' - Koledar',
+      loginRegister: 'Prijava / Registracija'
     }
   };
 
-  // Seed default initial user
+  // Default seed user
   const DEFAULT_USER = {
-    deviceUid: deviceUid,
+    machineId: machineId,
     username: 'me',
     name: 'My Calendar',
     bio: 'Select any available day to request an appointment slot.',
@@ -283,12 +334,12 @@
     pfpUrl: ''
   };
 
-  // --- STATE ---
-  let users = loadFromStorage(STORAGE_KEY_USERS, [DEFAULT_USER]);
-  let appointments = loadFromStorage(STORAGE_KEY_APPOINTMENTS, []);
-  let currentUsername = loadFromStorage(STORAGE_KEY_CURRENT_USER, 'me');
-  let friendsMap = loadFromStorage(STORAGE_KEY_FRIENDS, { me: [] });
-  let currentLang = loadFromStorage(STORAGE_KEY_LANG, 'en');
+  // --- STATE INITIALIZATION ---
+  let users = loadStorageOrCookie(KEY_USERS, [DEFAULT_USER]);
+  let appointments = loadStorageOrCookie(KEY_APPOINTMENTS, []);
+  let currentUsername = loadStorageOrCookie(KEY_CURRENT_USER, 'me');
+  let friendsMap = loadStorageOrCookie(KEY_FRIENDS, { me: [] });
+  let currentLang = loadStorageOrCookie(KEY_LANG, 'en');
 
   let rawParam = getUrlParameter('user');
   let viewingUsername = (rawParam && rawParam !== '?') ? rawParam : (currentUsername || 'me');
@@ -300,26 +351,12 @@
   let currentActiveTab = 'calendar';
   let inboxFilter = 'pending';
 
-  // Ensure active user exists in storage
-  let activeUserObj = users.find(u => u.username.toLowerCase() === (currentUsername || 'me').toLowerCase());
-  if (!activeUserObj) {
-    users.push({
-      deviceUid: deviceUid,
-      username: currentUsername || 'me',
-      name: currentUsername || 'My Calendar',
-      bio: 'Open for appointments.',
-      color: 'from-blue-600 to-indigo-600',
-      privacyShowDetails: true,
-      pfpType: 'initials',
-      pfpUrl: ''
-    });
-  }
-
-  saveToStorage(STORAGE_KEY_USERS, users);
-  saveToStorage(STORAGE_KEY_APPOINTMENTS, appointments);
-  saveToStorage(STORAGE_KEY_CURRENT_USER, currentUsername);
-  saveToStorage(STORAGE_KEY_FRIENDS, friendsMap);
-  saveToStorage(STORAGE_KEY_LANG, currentLang);
+  // Save state to Cookies & LocalStorage immediately
+  saveStorageAndCookie(KEY_USERS, users);
+  saveStorageAndCookie(KEY_APPOINTMENTS, appointments);
+  saveStorageAndCookie(KEY_CURRENT_USER, currentUsername);
+  saveStorageAndCookie(KEY_FRIENDS, friendsMap);
+  saveStorageAndCookie(KEY_LANG, currentLang);
 
   // --- DOM ELEMENTS ---
   const brandLink = document.getElementById('brandLink');
@@ -477,7 +514,7 @@
   function setupEventListeners() {
     languageSelect.addEventListener('change', (e) => {
       currentLang = e.target.value;
-      saveToStorage(STORAGE_KEY_LANG, currentLang);
+      saveStorageAndCookie(KEY_LANG, currentLang);
       applyLanguageTranslations();
       showToast(`Language set to ${currentLang.toUpperCase()}`, 'success');
     });
@@ -556,6 +593,9 @@
       forceResetStorageBtn.addEventListener('click', () => {
         try {
           localStorage.clear();
+          document.cookie.split(";").forEach(c => {
+            document.cookie = c.replace(/^ +/, "").replace(/=.*/, "=;expires=" + new Date().toUTCString() + ";path=/");
+          });
           location.reload();
         } catch (e) {}
       });
@@ -632,6 +672,58 @@
     filterAccepted.addEventListener('click', () => setInboxFilter('accepted'));
     filterRejected.addEventListener('click', () => setInboxFilter('rejected'));
     filterAll.addEventListener('click', () => setInboxFilter('all'));
+  }
+
+  // --- CREATE ACCOUNT & LOGIN ENGINE ---
+  function handleCreateAccount(e) {
+    if (e && e.preventDefault) e.preventDefault();
+    const handle = newUsername.value.trim().toLowerCase().replace(/[^a-z0-9_]/g, '');
+    const name = newDisplayName.value.trim();
+    const pfpType = pfpTypeSelect.value;
+    const pfpUrl = pfpUrlInput.value.trim();
+
+    if (!handle || !name) {
+      showToast('Please enter a valid handle and display name.', 'error');
+      return;
+    }
+
+    let targetUser = users.find(u => u.username.toLowerCase() === handle);
+
+    if (targetUser) {
+      targetUser.name = name;
+      targetUser.pfpType = pfpType;
+      targetUser.pfpUrl = pfpUrl;
+      targetUser.machineId = machineId;
+      currentUsername = handle;
+    } else {
+      const colors = ['from-blue-600 to-indigo-600', 'from-purple-600 to-pink-600', 'from-emerald-600 to-teal-600', 'from-orange-500 to-amber-600'];
+      const newUser = {
+        machineId: machineId,
+        username: handle,
+        name: name,
+        bio: 'Open for appointments.',
+        color: colors[Math.floor(Math.random() * colors.length)],
+        privacyShowDetails: true,
+        pfpType: pfpType,
+        pfpUrl: pfpUrl
+      };
+      users.push(newUser);
+      currentUsername = handle;
+    }
+
+    // Instantly save to Cookie (1-Year expiration) & LocalStorage
+    saveStorageAndCookie(KEY_USERS, users);
+    viewingUsername = currentUsername;
+    saveStorageAndCookie(KEY_CURRENT_USER, currentUsername);
+
+    newUsername.value = '';
+    newDisplayName.value = '';
+    pfpUrlInput.value = '';
+
+    closeAuthModal();
+    updateUserDisplays();
+    renderCalendar();
+    showToast(`Account created & logged in: ${name} (@${currentUsername})`, 'success');
   }
 
   // --- AUTOCOMPLETE SEARCH ENGINE ---
@@ -737,21 +829,6 @@
   }
 
   // --- HELPERS ---
-  function loadFromStorage(key, fallback) {
-    try {
-      const raw = localStorage.getItem(key);
-      return raw ? JSON.parse(raw) : fallback;
-    } catch (e) {
-      return fallback;
-    }
-  }
-
-  function saveToStorage(key, val) {
-    try {
-      localStorage.setItem(key, JSON.stringify(val));
-    } catch (e) {}
-  }
-
   function getUrlParameter(name) {
     const urlParams = new URLSearchParams(window.location.search);
     return urlParams.get(name);
@@ -923,10 +1000,10 @@
       curUser.username = newHandle;
       currentUsername = newHandle;
       viewingUsername = newHandle;
-      saveToStorage(STORAGE_KEY_CURRENT_USER, currentUsername);
+      saveStorageAndCookie(KEY_CURRENT_USER, currentUsername);
     }
 
-    saveToStorage(STORAGE_KEY_USERS, users);
+    saveStorageAndCookie(KEY_USERS, users);
 
     closeEditProfileModal();
     updateUserDisplays();
@@ -985,7 +1062,7 @@
     const curUser = getUser(currentUsername);
     const dict = I18N[currentLang] || I18N.en;
     curUser.privacyShowDetails = !curUser.privacyShowDetails;
-    saveToStorage(STORAGE_KEY_USERS, users);
+    saveStorageAndCookie(KEY_USERS, users);
     updateUserDisplays();
     renderCalendar();
     showToast(curUser.privacyShowDetails ? dict.privacyPublic : dict.privacyPrivate, 'info');
@@ -1213,7 +1290,7 @@
     };
 
     appointments.push(newAppointment);
-    saveToStorage(STORAGE_KEY_APPOINTMENTS, appointments);
+    saveStorageAndCookie(KEY_APPOINTMENTS, appointments);
 
     closeBookingModal();
     renderCalendar();
@@ -1381,7 +1458,7 @@
     const target = appointments.find(a => a.id === id);
     if (target) {
       target.status = status;
-      saveToStorage(STORAGE_KEY_APPOINTMENTS, appointments);
+      saveStorageAndCookie(KEY_APPOINTMENTS, appointments);
       renderInbox();
       renderCalendar();
       updateInboxBadgeCount();
@@ -1391,7 +1468,7 @@
 
   function deleteAppointment(id) {
     appointments = appointments.filter(a => a.id !== id);
-    saveToStorage(STORAGE_KEY_APPOINTMENTS, appointments);
+    saveStorageAndCookie(KEY_APPOINTMENTS, appointments);
     renderInbox();
     renderCalendar();
     updateInboxBadgeCount();
@@ -1484,7 +1561,7 @@
     }
 
     friendsMap[currentUsername].push(cleanUsername);
-    saveToStorage(STORAGE_KEY_FRIENDS, friendsMap);
+    saveStorageAndCookie(KEY_FRIENDS, friendsMap);
 
     updateUserDisplays();
     renderFriends();
@@ -1494,7 +1571,7 @@
   function removeFriendFromCurrentUser(username) {
     if (currentUsername && friendsMap[currentUsername]) {
       friendsMap[currentUsername] = friendsMap[currentUsername].filter(u => u.toLowerCase() !== username.toLowerCase());
-      saveToStorage(STORAGE_KEY_FRIENDS, friendsMap);
+      saveStorageAndCookie(KEY_FRIENDS, friendsMap);
       renderFriends();
       updateUserDisplays();
       showToast(`Removed @${username}.`, 'info');
@@ -1523,7 +1600,7 @@
     }
   }
 
-  // --- AUTH & ACCOUNT SWITCHER ---
+  // --- AUTH & ACCOUNT SWITCHER MODAL ---
   function openAuthModal() {
     renderRegisteredUsersList();
     authModal.classList.remove('hidden');
@@ -1561,65 +1638,15 @@
       item.addEventListener('click', () => {
         currentUsername = u.username;
         viewingUsername = u.username;
-        saveToStorage(STORAGE_KEY_CURRENT_USER, currentUsername);
+        saveStorageAndCookie(KEY_CURRENT_USER, currentUsername);
         closeAuthModal();
         updateUserDisplays();
         renderCalendar();
-        showToast(`Switched profile to ${u.name}`, 'success');
+        showToast(`Logged into ${u.name} (@${u.username})`, 'success');
       });
 
       registeredUsersList.appendChild(item);
     });
-  }
-
-  function handleCreateAccount(e) {
-    if (e && e.preventDefault) e.preventDefault();
-    const handle = newUsername.value.trim().toLowerCase().replace(/[^a-z0-9_]/g, '');
-    const name = newDisplayName.value.trim();
-    const pfpType = pfpTypeSelect.value;
-    const pfpUrl = pfpUrlInput.value.trim();
-
-    if (!handle || !name) {
-      showToast('Please enter a valid handle and display name.', 'error');
-      return;
-    }
-
-    let targetUser = users.find(u => u.username.toLowerCase() === handle);
-
-    if (targetUser) {
-      targetUser.name = name;
-      targetUser.pfpType = pfpType;
-      targetUser.pfpUrl = pfpUrl;
-      targetUser.deviceUid = deviceUid;
-      currentUsername = handle;
-    } else {
-      const colors = ['from-blue-600 to-indigo-600', 'from-purple-600 to-pink-600', 'from-emerald-600 to-teal-600', 'from-orange-500 to-amber-600'];
-      const newUser = {
-        deviceUid: deviceUid,
-        username: handle,
-        name: name,
-        bio: 'Open for appointments.',
-        color: colors[Math.floor(Math.random() * colors.length)],
-        privacyShowDetails: true,
-        pfpType: pfpType,
-        pfpUrl: pfpUrl
-      };
-      users.push(newUser);
-      currentUsername = handle;
-    }
-
-    saveToStorage(STORAGE_KEY_USERS, users);
-    viewingUsername = currentUsername;
-    saveToStorage(STORAGE_KEY_CURRENT_USER, currentUsername);
-
-    newUsername.value = '';
-    newDisplayName.value = '';
-    pfpUrlInput.value = '';
-
-    closeAuthModal();
-    updateUserDisplays();
-    renderCalendar();
-    showToast(`Account registered: ${name} (@${currentUsername})`, 'success');
   }
 
   // --- SHARE LINK ---
