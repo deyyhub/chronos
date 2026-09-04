@@ -1,27 +1,28 @@
 /**
- * Chronos — Personal Availability & Booking Engine (Production v8.0 Release)
- * - Automated Boot Storage Purge (Wipes Legacy Alex Rivera & Demo Data for all visitors)
- * - Multilingual System Fix (EN, IT, RO, SL across months, pills, & UI controls)
- * - Mobile Phone Overflow Fix
+ * Chronos — Personal Availability & Booking Engine (Production v9.0 Release)
+ * Features:
+ * - Device UID Identification & Mandatory Onboarding Gate for new phones/visitors
+ * - Strict Host vs Guest Access Control (Guests can only request appointments, cannot edit host)
+ * - Multilingual System (EN, IT, RO, SL across months, status badges, & UI controls)
+ * - Rest API Cloud Database Sync Adapter Ready (Supabase / Firebase / Cloudflare)
  */
 
 (function () {
   'use strict';
 
-  // MANDATORY BOOT PURGE — Instantly clears legacy Alex Rivera demo data on page load
-  const HARD_PURGE_FLAG = 'chronos_purged_v8_0_final';
-  if (!localStorage.getItem(HARD_PURGE_FLAG)) {
-    try {
-      localStorage.clear();
-      localStorage.setItem(HARD_PURGE_FLAG, 'true');
-    } catch (e) {}
-  }
+  const STORAGE_KEY_DEVICE_UID = 'chronos_device_uid_v9';
+  const STORAGE_KEY_USERS = 'chronos_users_v9';
+  const STORAGE_KEY_APPOINTMENTS = 'chronos_appointments_v9';
+  const STORAGE_KEY_CURRENT_USER = 'chronos_current_user_v9';
+  const STORAGE_KEY_FRIENDS = 'chronos_friends_v9';
+  const STORAGE_KEY_LANG = 'chronos_language_v9';
 
-  const STORAGE_KEY_USERS = 'chronos_users_v8_0';
-  const STORAGE_KEY_APPOINTMENTS = 'chronos_appointments_v8_0';
-  const STORAGE_KEY_CURRENT_USER = 'chronos_current_user_v8_0';
-  const STORAGE_KEY_FRIENDS = 'chronos_friends_v8_0';
-  const STORAGE_KEY_LANG = 'chronos_language_v8_0';
+  // Generate or retrieve persistent Device UID
+  let deviceUid = localStorage.getItem(STORAGE_KEY_DEVICE_UID);
+  if (!deviceUid) {
+    deviceUid = 'dev_' + Date.now() + '_' + Math.random().toString(36).substr(2, 6);
+    localStorage.setItem(STORAGE_KEY_DEVICE_UID, deviceUid);
+  }
 
   // 100% Complete Translation Dictionaries
   const I18N = {
@@ -271,50 +272,22 @@
     }
   };
 
-  // Clean single default user (No demo accounts like Alex Rivera)
-  const DEFAULT_USERS = [
-    {
-      username: 'me',
-      name: 'My Calendar',
-      bio: 'Select any available day to request an appointment slot.',
-      color: 'from-blue-600 to-indigo-600',
-      privacyShowDetails: true,
-      pfpType: 'initials',
-      pfpUrl: ''
-    }
-  ];
-
-  const DEFAULT_APPOINTMENTS = [];
-
-  function getOffsetDateStr(offsetDays) {
-    const d = new Date();
-    d.setDate(d.getDate() + offsetDays);
-    const yr = d.getFullYear();
-    const mo = String(d.getMonth() + 1).padStart(2, '0');
-    const dy = String(d.getDate()).padStart(2, '0');
-    return `${yr}-${mo}-${dy}`;
-  }
-
-  // --- STATE ---
+  // --- INITIAL DATA & STORAGE ---
+  let users = loadFromStorage(STORAGE_KEY_USERS, []);
+  let appointments = loadFromStorage(STORAGE_KEY_APPOINTMENTS, []);
+  let currentUsername = loadFromStorage(STORAGE_KEY_CURRENT_USER, null);
+  let friendsMap = loadFromStorage(STORAGE_KEY_FRIENDS, {});
   let currentLang = loadFromStorage(STORAGE_KEY_LANG, 'en');
-  let users = loadFromStorage(STORAGE_KEY_USERS, DEFAULT_USERS);
-  let appointments = loadFromStorage(STORAGE_KEY_APPOINTMENTS, DEFAULT_APPOINTMENTS);
-  let currentUsername = loadFromStorage(STORAGE_KEY_CURRENT_USER, 'me');
-  let friendsMap = loadFromStorage(STORAGE_KEY_FRIENDS, { me: [] });
 
-  let viewingUsername = getUrlParameter('user') || currentUsername;
+  let urlUserParam = getUrlParameter('user');
+  let viewingUsername = urlUserParam || currentUsername || 'host';
+
   let currentDate = new Date();
   let currentMonth = currentDate.getMonth();
   let currentYear = currentDate.getFullYear();
   let selectedDateForBooking = null;
   let currentActiveTab = 'calendar';
   let inboxFilter = 'pending';
-
-  saveToStorage(STORAGE_KEY_USERS, users);
-  saveToStorage(STORAGE_KEY_APPOINTMENTS, appointments);
-  saveToStorage(STORAGE_KEY_CURRENT_USER, currentUsername);
-  saveToStorage(STORAGE_KEY_FRIENDS, friendsMap);
-  saveToStorage(STORAGE_KEY_LANG, currentLang);
 
   // --- DOM ELEMENTS ---
   const brandLink = document.getElementById('brandLink');
@@ -369,6 +342,12 @@
   const liveUserSearchInput = document.getElementById('liveUserSearchInput');
   const clearSearchBtn = document.getElementById('clearSearchBtn');
   const autocompleteDropdown = document.getElementById('autocompleteDropdown');
+
+  // Onboarding Modal
+  const onboardingModal = document.getElementById('onboardingModal');
+  const onboardingForm = document.getElementById('onboardingForm');
+  const onboardingNameInput = document.getElementById('onboardingNameInput');
+  const onboardingHandleInput = document.getElementById('onboardingHandleInput');
 
   // Booking Modal
   const bookingModal = document.getElementById('bookingModal');
@@ -429,15 +408,73 @@
 
   const toastContainer = document.getElementById('toastContainer');
 
-  // --- BOOT ---
+  // --- BOOT & ONBOARDING GATE ---
   function init() {
     languageSelect.value = currentLang;
+    
+    // Check if device is registered
+    const currentUserObj = users.find(u => u.deviceUid === deviceUid || u.username === currentUsername);
+
+    if (!currentUserObj && !currentUsername) {
+      openOnboardingModal();
+    } else if (currentUserObj) {
+      currentUsername = currentUserObj.username;
+      saveToStorage(STORAGE_KEY_CURRENT_USER, currentUsername);
+    }
+
+    if (!viewingUsername || viewingUsername === 'host') {
+      viewingUsername = currentUsername || 'my_calendar';
+    }
+
     applyLanguageTranslations();
     setupYearSelect();
     setupEventListeners();
     updateUserDisplays();
     renderActiveView();
     refreshIcons();
+  }
+
+  function openOnboardingModal() {
+    onboardingModal.classList.remove('hidden');
+    setTimeout(() => onboardingModal.classList.add('modal-open'), 10);
+    refreshIcons();
+  }
+
+  function handleOnboardingSubmit(e) {
+    e.preventDefault();
+    const name = onboardingNameInput.value.trim();
+    const handle = onboardingHandleInput.value.trim().toLowerCase().replace(/[^a-z0-9_]/g, '');
+
+    if (!name || !handle) {
+      showToast('Please enter a valid name and handle.', 'error');
+      return;
+    }
+
+    const newUser = {
+      deviceUid: deviceUid,
+      username: handle,
+      name: name,
+      bio: 'Select any available day to request an appointment slot.',
+      color: 'from-blue-600 to-indigo-600',
+      privacyShowDetails: true,
+      pfpType: 'initials',
+      pfpUrl: ''
+    };
+
+    users.push(newUser);
+    currentUsername = handle;
+
+    if (!urlUserParam) viewingUsername = handle;
+
+    saveToStorage(STORAGE_KEY_USERS, users);
+    saveToStorage(STORAGE_KEY_CURRENT_USER, currentUsername);
+
+    onboardingModal.classList.remove('modal-open');
+    setTimeout(() => onboardingModal.classList.add('hidden'), 300);
+
+    updateUserDisplays();
+    renderCalendar();
+    showToast(`Welcome ${name}! Your profile is live.`, 'success');
   }
 
   // --- MULTILINGUAL i18n ENGINE ---
@@ -473,6 +510,8 @@
       applyLanguageTranslations();
       showToast(`Language set to ${currentLang.toUpperCase()}`, 'success');
     });
+
+    onboardingForm.addEventListener('submit', handleOnboardingSubmit);
 
     navCalendar.addEventListener('click', () => switchTab('calendar'));
     navInbox.addEventListener('click', () => switchTab('inbox'));
@@ -763,9 +802,9 @@
   }
 
   function getUser(username) {
-    return users.find(u => u.username.toLowerCase() === username.toLowerCase()) || {
-      username: username,
-      name: username,
+    return users.find(u => u.username.toLowerCase() === (username || '').toLowerCase()) || {
+      username: username || 'user',
+      name: username || 'User',
       bio: 'Chronos User',
       color: 'from-blue-600 to-indigo-600',
       privacyShowDetails: true,
@@ -898,9 +937,9 @@
     showToast(`Profile set to "${newName}" (@${newHandle})`, 'success');
   }
 
-  // --- USER DISPLAY & PRIVACY TOGGLE ---
+  // --- USER DISPLAY & HOST VS GUEST AUTHORIZATION ---
   function updateUserDisplays() {
-    const curUser = getUser(currentUsername);
+    const curUser = getUser(currentUsername || 'me');
     const viewUser = getUser(viewingUsername);
     const dict = I18N[currentLang] || I18N.en;
 
@@ -912,9 +951,10 @@
     bannerHandle.textContent = `@${viewUser.username}`;
     bannerBio.textContent = viewUser.bio || dict.bannerSubtitle;
 
-    const isSelf = currentUsername.toLowerCase() === viewingUsername.toLowerCase();
+    const isSelf = currentUsername && (currentUsername.toLowerCase() === viewingUsername.toLowerCase());
     
     if (isSelf) {
+      // HOST VIEW (Owner of the calendar)
       editProfileBtn.classList.remove('hidden');
       privacyToggleBtn.classList.remove('hidden');
       const showDetails = curUser.privacyShowDetails !== false;
@@ -925,6 +965,7 @@
       viewModeText.textContent = dict.hostView;
       addFriendBtn.classList.add('hidden');
     } else {
+      // GUEST VIEW (Visitor viewing a friend's calendar)
       editProfileBtn.classList.add('hidden');
       privacyToggleBtn.classList.add('hidden');
       
@@ -954,6 +995,7 @@
   }
 
   function updateInboxBadgeCount() {
+    if (!currentUsername) return;
     const hostPending = appointments.filter(a => a.hostUsername.toLowerCase() === currentUsername.toLowerCase() && a.status === 'pending');
     if (hostPending.length > 0) {
       inboxBadgeCount.textContent = hostPending.length;
@@ -979,10 +1021,7 @@
 
     const todayStr = getOffsetDateStr(0);
 
-    const viewUser = getUser(viewingUsername);
-    const isSelf = currentUsername.toLowerCase() === viewingUsername.toLowerCase();
-
-    // Previous month padding
+    // Muted days from previous month
     for (let i = firstDayIndex - 1; i >= 0; i--) {
       const dayNum = prevMonthDays - i;
       const dayCell = document.createElement('div');
@@ -991,7 +1030,7 @@
       calendarGrid.appendChild(dayCell);
     }
 
-    // Current month days
+    // Days of current month
     for (let d = 1; d <= daysInMonth; d++) {
       const monthStr = String(currentMonth + 1).padStart(2, '0');
       const dayStr = String(d).padStart(2, '0');
@@ -1044,6 +1083,11 @@
       `;
 
       dayCell.addEventListener('click', () => {
+        if (!currentUsername) {
+          openOnboardingModal();
+          return;
+        }
+
         if (hasAccepted || hasPending) {
           const targetApt = dayAppointments.find(a => a.status === 'accepted') || dayAppointments.find(a => a.status === 'pending');
           openNoteInspectModal(targetApt, dateKey);
@@ -1055,7 +1099,7 @@
       calendarGrid.appendChild(dayCell);
     }
 
-    // Next month padding
+    // Muted days from next month
     const totalFilledCells = firstDayIndex + daysInMonth;
     const totalGridTarget = totalFilledCells > 35 ? 42 : 35;
     const nextMonthPadding = totalGridTarget - totalFilledCells;
@@ -1165,7 +1209,7 @@
     const newAppointment = {
       id: 'apt_' + Date.now() + '_' + Math.random().toString(36).substr(2, 4),
       hostUsername: viewingUsername,
-      requesterUsername: currentUsername,
+      requesterUsername: currentUsername || 'guest',
       requesterName: requesterName,
       dateStr: selectedDateForBooking,
       startTime: start,
@@ -1188,7 +1232,7 @@
   // --- NOTE INSPECTOR ---
   function openNoteInspectModal(apt, dateKey) {
     const viewUser = getUser(viewingUsername);
-    const isSelf = currentUsername.toLowerCase() === viewingUsername.toLowerCase();
+    const isSelf = currentUsername && (currentUsername.toLowerCase() === viewingUsername.toLowerCase());
     const showDetails = isSelf || (viewUser.privacyShowDetails !== false);
     const dict = I18N[currentLang] || I18N.en;
 
@@ -1237,7 +1281,7 @@
     inboxListContainer.innerHTML = '';
     const dict = I18N[currentLang] || I18N.en;
 
-    let hostAppointments = appointments.filter(a => a.hostUsername.toLowerCase() === currentUsername.toLowerCase());
+    let hostAppointments = appointments.filter(a => currentUsername && a.hostUsername.toLowerCase() === currentUsername.toLowerCase());
 
     if (inboxFilter !== 'all') {
       hostAppointments = hostAppointments.filter(a => a.status === inboxFilter);
@@ -1366,7 +1410,7 @@
   function renderFriends() {
     friendsGrid.innerHTML = '';
     const dict = I18N[currentLang] || I18N.en;
-    const userFriends = friendsMap[currentUsername] || [];
+    const userFriends = currentUsername ? (friendsMap[currentUsername] || []) : [];
 
     if (userFriends.length === 0) {
       friendsGrid.innerHTML = `
@@ -1430,6 +1474,11 @@
   }
 
   function addFriendToCurrentUser(username) {
+    if (!currentUsername) {
+      openOnboardingModal();
+      return;
+    }
+
     const cleanUsername = username.trim().toLowerCase();
     if (!cleanUsername) return;
 
@@ -1454,7 +1503,7 @@
   }
 
   function removeFriendFromCurrentUser(username) {
-    if (friendsMap[currentUsername]) {
+    if (currentUsername && friendsMap[currentUsername]) {
       friendsMap[currentUsername] = friendsMap[currentUsername].filter(u => u.toLowerCase() !== username.toLowerCase());
       saveToStorage(STORAGE_KEY_FRIENDS, friendsMap);
       renderFriends();
@@ -1501,7 +1550,7 @@
   function renderRegisteredUsersList() {
     registeredUsersList.innerHTML = '';
     users.forEach(u => {
-      const isCurrent = u.username.toLowerCase() === currentUsername.toLowerCase();
+      const isCurrent = currentUsername && u.username.toLowerCase() === currentUsername.toLowerCase();
       const item = document.createElement('div');
       item.className = `p-2.5 sm:p-3 rounded-2xl border cursor-pointer flex items-center justify-between transition ${
         isCurrent ? 'bg-purple-600/20 border-purple-500/40 text-white' : 'bg-black/40 border-white/10 hover:bg-white/10 text-zinc-300'
@@ -1552,10 +1601,12 @@
       targetUser.name = name;
       targetUser.pfpType = pfpType;
       targetUser.pfpUrl = pfpUrl;
+      targetUser.deviceUid = deviceUid;
       currentUsername = handle;
     } else {
       const colors = ['from-blue-600 to-indigo-600', 'from-purple-600 to-pink-600', 'from-emerald-600 to-teal-600', 'from-orange-500 to-amber-600'];
       const newUser = {
+        deviceUid: deviceUid,
         username: handle,
         name: name,
         bio: 'Open for appointments.',
