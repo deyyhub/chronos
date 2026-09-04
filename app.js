@@ -1,6 +1,7 @@
 /**
- * Chronos — Personal Availability & Booking Engine (Production v12.0 Account Verification Gate)
+ * Chronos — Personal Availability & Booking Engine (Production v12.1 Instant Friends Engine)
  * Features:
+ * - Instant Friends Engine: Strip leading @, auto-register unlisted handles, 1-tap quick add.
  * - Device Registration Check: Opens registration modal on fresh phone/browser if no account is saved.
  * - Dual Storage: 1-Year Cookie (`document.cookie`) + LocalStorage Machine ID persistence.
  * - Saves user profile immediately to Cookie + LocalStorage.
@@ -462,6 +463,28 @@
   function init() {
     languageSelect.value = currentLang;
 
+    if (rawParam && rawParam !== '?') {
+      const cleanParam = rawParam.trim().toLowerCase().replace(/^@/, '');
+      if (cleanParam) {
+        viewingUsername = cleanParam;
+        let existing = users.find(u => u.username.toLowerCase().replace(/^@/, '') === cleanParam);
+        if (!existing) {
+          const colors = ['from-blue-600 to-indigo-600', 'from-purple-600 to-pink-600', 'from-emerald-600 to-teal-600', 'from-orange-500 to-amber-600'];
+          users.push({
+            machineId: 'remote_' + cleanParam,
+            username: cleanParam,
+            name: cleanParam.charAt(0).toUpperCase() + cleanParam.slice(1),
+            bio: 'Chronos User',
+            color: colors[Math.floor(Math.random() * colors.length)],
+            privacyShowDetails: true,
+            pfpType: 'initials',
+            pfpUrl: ''
+          });
+          saveStorageAndCookie(KEY_USERS, users);
+        }
+      }
+    }
+
     // Check if account exists for current session
     if (!currentUsername || users.length === 0) {
       openRegistrationGateModal();
@@ -772,7 +795,8 @@
 
   // --- AUTOCOMPLETE SEARCH ENGINE ---
   function handleLiveUserSearch() {
-    const q = liveUserSearchInput.value.trim().toLowerCase();
+    const raw = liveUserSearchInput.value.trim();
+    const q = raw.toLowerCase().replace(/^@/, '');
 
     if (!q) {
       clearSearchBtn.classList.add('hidden');
@@ -784,34 +808,63 @@
 
     const matches = users.filter(u => 
       u.name.toLowerCase().includes(q) || 
-      u.username.toLowerCase().includes(q)
+      u.username.toLowerCase().replace(/^@/, '').includes(q)
     );
 
-    renderAutocompleteResults(matches, autocompleteDropdown, false);
+    renderAutocompleteResults(matches, autocompleteDropdown, false, q);
   }
 
   function handleModalUserSearch() {
-    const q = friendUsernameInput.value.trim().toLowerCase();
+    const raw = friendUsernameInput.value.trim();
+    const q = raw.toLowerCase().replace(/^@/, '');
     if (!q) {
       modalAutocompleteDropdown.classList.add('hidden');
       return;
     }
     const matches = users.filter(u => 
       u.name.toLowerCase().includes(q) || 
-      u.username.toLowerCase().includes(q)
+      u.username.toLowerCase().replace(/^@/, '').includes(q)
     );
-    renderAutocompleteResults(matches, modalAutocompleteDropdown, true);
+    renderAutocompleteResults(matches, modalAutocompleteDropdown, true, q);
   }
 
-  function renderAutocompleteResults(matches, dropdownContainer, isModal) {
+  function renderAutocompleteResults(matches, dropdownContainer, isModal, searchQuery = '') {
     dropdownContainer.innerHTML = '';
     const dict = I18N[currentLang] || I18N.en;
 
     if (matches.length === 0) {
-      dropdownContainer.innerHTML = `
-        <div class="p-3 text-xs text-apple-graySub text-center">
-          No user found.
-        </div>`;
+      const cleanQ = searchQuery.trim().toLowerCase().replace(/^@/, '');
+      if (cleanQ && cleanQ !== (currentUsername || '').toLowerCase().replace(/^@/, '')) {
+        const item = document.createElement('div');
+        item.className = 'p-2.5 rounded-xl bg-white/5 hover:bg-white/10 cursor-pointer flex items-center justify-between space-x-3 transition border border-white/5';
+        item.innerHTML = `
+          <div class="flex items-center space-x-3 min-w-0">
+            <div class="w-8 h-8 rounded-xl bg-gradient-to-tr from-indigo-600 to-purple-600 text-white flex items-center justify-center font-bold text-xs shadow-md overflow-hidden flex-shrink-0">
+              ${cleanQ.slice(0, 2).toUpperCase()}
+            </div>
+            <div class="min-w-0">
+              <div class="text-xs font-bold text-white truncate">${cleanQ.charAt(0).toUpperCase() + cleanQ.slice(1)}</div>
+              <div class="text-[10px] text-apple-graySub font-mono">@${cleanQ}</div>
+            </div>
+          </div>
+          <button type="button" class="add-unlisted-btn px-2.5 py-1 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-[11px] font-semibold transition">
+            + ${dict.addFriendBtn}
+          </button>`;
+
+        item.addEventListener('click', (e) => {
+          e.stopPropagation();
+          addFriendToCurrentUser(cleanQ);
+          dropdownContainer.classList.add('hidden');
+          if (isModal) closeAddFriendModal();
+        });
+
+        dropdownContainer.appendChild(item);
+      } else {
+        dropdownContainer.innerHTML = `
+          <div class="p-3 text-xs text-apple-graySub text-center">
+            No user found.
+          </div>`;
+      }
       dropdownContainer.classList.remove('hidden');
       return;
     }
@@ -820,7 +873,9 @@
       const item = document.createElement('div');
       item.className = 'p-2.5 rounded-xl bg-white/5 hover:bg-white/10 cursor-pointer flex items-center justify-between space-x-3 transition border border-white/5';
 
-      const isFriend = (friendsMap[currentUsername] || []).includes(userObj.username);
+      const userFriends = (friendsMap[currentUsername] || []).map(f => f.toLowerCase().replace(/^@/, ''));
+      const cleanUserObjHandle = userObj.username.toLowerCase().replace(/^@/, '');
+      const isFriend = userFriends.includes(cleanUserObjHandle);
 
       item.innerHTML = `
         <div class="flex items-center space-x-3 min-w-0">
@@ -837,7 +892,7 @@
           <button type="button" class="view-cal-btn px-2.5 py-1 rounded-lg bg-apple-accent/20 hover:bg-apple-accent/30 text-apple-accent text-[11px] font-semibold transition">
             ${dict.navCalendar}
           </button>
-          ${!isFriend && userObj.username !== currentUsername ? `
+          ${!isFriend && cleanUserObjHandle !== (currentUsername || '').toLowerCase().replace(/^@/, '') ? `
             <button type="button" class="add-friend-quick-btn px-2.5 py-1 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-[11px] font-semibold transition">
               + ${dict.addFriendBtn}
             </button>
@@ -912,9 +967,14 @@
   }
 
   function getUser(username) {
-    return users.find(u => u.username.toLowerCase() === (username || '').toLowerCase()) || {
-      username: username || 'user',
-      name: username || 'User',
+    const clean = (username || '').trim().toLowerCase().replace(/^@/, '');
+    const found = users.find(u => u.username.toLowerCase().replace(/^@/, '') === clean);
+    if (found) return found;
+
+    const formattedName = clean ? (clean.charAt(0).toUpperCase() + clean.slice(1)) : 'User';
+    return {
+      username: clean || 'user',
+      name: formattedName,
       bio: 'Chronos User',
       color: 'from-blue-600 to-indigo-600',
       privacyShowDetails: true,
@@ -1594,19 +1654,40 @@
   function addFriendToCurrentUser(username) {
     if (!currentUsername) return;
 
-    const cleanUsername = username.trim().toLowerCase();
+    const cleanUsername = username.trim().toLowerCase().replace(/^@/, '');
     if (!cleanUsername) return;
 
-    if (cleanUsername === currentUsername.toLowerCase()) {
+    const cleanCurrent = currentUsername.trim().toLowerCase().replace(/^@/, '');
+
+    if (cleanUsername === cleanCurrent) {
       showToast('You cannot add yourself as a friend.', 'error');
       return;
     }
 
     if (!friendsMap[currentUsername]) friendsMap[currentUsername] = [];
 
-    if (friendsMap[currentUsername].includes(cleanUsername)) {
+    const existingFriends = friendsMap[currentUsername].map(f => f.toLowerCase().replace(/^@/, ''));
+    if (existingFriends.includes(cleanUsername)) {
       showToast(`@${cleanUsername} is already in your friends list.`, 'info');
       return;
+    }
+
+    // Auto-register user in local directory if not present
+    let knownUser = users.find(u => u.username.toLowerCase().replace(/^@/, '') === cleanUsername);
+    if (!knownUser) {
+      const colors = ['from-blue-600 to-indigo-600', 'from-purple-600 to-pink-600', 'from-emerald-600 to-teal-600', 'from-orange-500 to-amber-600'];
+      const newUser = {
+        machineId: 'remote_' + cleanUsername,
+        username: cleanUsername,
+        name: cleanUsername.charAt(0).toUpperCase() + cleanUsername.slice(1),
+        bio: 'Chronos Friend Calendar',
+        color: colors[Math.floor(Math.random() * colors.length)],
+        privacyShowDetails: true,
+        pfpType: 'initials',
+        pfpUrl: ''
+      };
+      users.push(newUser);
+      saveStorageAndCookie(KEY_USERS, users);
     }
 
     friendsMap[currentUsername].push(cleanUsername);
@@ -1614,16 +1695,17 @@
 
     updateUserDisplays();
     renderFriends();
-    showToast(`Added @${cleanUsername}!`, 'success');
+    showToast(`Added @${cleanUsername} to your friends list!`, 'success');
   }
 
   function removeFriendFromCurrentUser(username) {
     if (currentUsername && friendsMap[currentUsername]) {
-      friendsMap[currentUsername] = friendsMap[currentUsername].filter(u => u.toLowerCase() !== username.toLowerCase());
+      const cleanTarget = username.trim().toLowerCase().replace(/^@/, '');
+      friendsMap[currentUsername] = friendsMap[currentUsername].filter(u => u.toLowerCase().replace(/^@/, '') !== cleanTarget);
       saveStorageAndCookie(KEY_FRIENDS, friendsMap);
       renderFriends();
       updateUserDisplays();
-      showToast(`Removed @${username}.`, 'info');
+      showToast(`Removed @${cleanTarget}.`, 'info');
     }
   }
 
