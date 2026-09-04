@@ -1,17 +1,17 @@
 /**
- * Chronos — Personal Availability & Booking Engine (Production v11.0 Machine Cookie & Account System)
+ * Chronos — Personal Availability & Booking Engine (Production v12.0 Account Verification Gate)
  * Features:
- * - Dual Storage: Persistent 1-Year Cookie (`document.cookie`) + LocalStorage Machine ID
- * - Instant Seamless Account Registration & Login (Name & Handle)
- * - Machine Device Fingerprint Verification (`chronos_machine_id`)
- * - Strict Host vs Guest Access Control
- * - Multilingual Support (EN, IT, RO, SL)
+ * - Device Registration Check: Opens registration modal on fresh phone/browser if no account is saved.
+ * - Dual Storage: 1-Year Cookie (`document.cookie`) + LocalStorage Machine ID persistence.
+ * - Saves user profile immediately to Cookie + LocalStorage.
+ * - Strict Host vs Guest Access Control.
+ * - Multilingual Engine (EN, IT, RO, SL).
  */
 
 (function () {
   'use strict';
 
-  // --- COOKIE HELPERS (1-Year Expiration for Mobile Browsers & iPhones) ---
+  // --- COOKIE HELPERS (1-Year Expiration) ---
   function setCookie(name, value, days = 365) {
     try {
       const d = new Date();
@@ -56,12 +56,12 @@
   }
 
   // --- STORAGE KEYS ---
-  const KEY_MACHINE_ID = 'chronos_machine_id_v11';
-  const KEY_USERS = 'chronos_users_v11';
-  const KEY_APPOINTMENTS = 'chronos_appointments_v11';
-  const KEY_CURRENT_USER = 'chronos_current_user_v11';
-  const KEY_FRIENDS = 'chronos_friends_v11';
-  const KEY_LANG = 'chronos_language_v11';
+  const KEY_MACHINE_ID = 'chronos_machine_id_v12';
+  const KEY_USERS = 'chronos_users_v12';
+  const KEY_APPOINTMENTS = 'chronos_appointments_v12';
+  const KEY_CURRENT_USER = 'chronos_current_user_v12';
+  const KEY_FRIENDS = 'chronos_friends_v12';
+  const KEY_LANG = 'chronos_language_v12';
 
   // Persistent Machine / Device ID
   let machineId = loadStorageOrCookie(KEY_MACHINE_ID, null);
@@ -132,7 +132,7 @@
       noFriendsSubtitle: 'Use the search bar above to type a handle or name and save friends.',
       searchPlaceholder: 'Search name or handle...',
       calendarTitleSuffix: "'s Calendar",
-      loginRegister: 'Log In / Register'
+      loginRegister: 'Create Account'
     },
     it: {
       months: ['Gennaio', 'Febbraio', 'Marzo', 'Aprile', 'Maggio', 'Giugno', 'Luglio', 'Agosto', 'Settembre', 'Ottobre', 'Novembre', 'Dicembre'],
@@ -194,7 +194,7 @@
       noFriendsSubtitle: 'Usa la barra di ricerca sopra per cercare un nome e salvare amici.',
       searchPlaceholder: 'Cerca nome o username...',
       calendarTitleSuffix: ' - Calendario',
-      loginRegister: 'Accedi / Registrati'
+      loginRegister: 'Crea account'
     },
     ro: {
       months: ['Ianuarie', 'Februarie', 'Martie', 'Aprilie', 'Mai', 'Iunie', 'Iulie', 'August', 'Septembrie', 'Octombrie', 'Noiembrie', 'Decembrie'],
@@ -256,7 +256,7 @@
       noFriendsSubtitle: 'Folosește bara de căutare de mai sus pentru a căuta și salva prieteni.',
       searchPlaceholder: 'Caută nume sau utilizator...',
       calendarTitleSuffix: ' - Calendar',
-      loginRegister: 'Autentificare / Înregistrare'
+      loginRegister: 'Creează cont'
     },
     sl: {
       months: ['Januar', 'Februar', 'Marec', 'April', 'Maj', 'Junij', 'Julij', 'Avgust', 'September', 'Oktober', 'November', 'December'],
@@ -318,31 +318,19 @@
       noFriendsSubtitle: 'Uporabite iskalno vrstico zgoraj za iskanje in shranjevanje prijateljev.',
       searchPlaceholder: 'Išči ime ali uporabniško ime...',
       calendarTitleSuffix: ' - Koledar',
-      loginRegister: 'Prijava / Registracija'
+      loginRegister: 'Ustvari račun'
     }
   };
 
-  // Default seed user
-  const DEFAULT_USER = {
-    machineId: machineId,
-    username: 'me',
-    name: 'My Calendar',
-    bio: 'Select any available day to request an appointment slot.',
-    color: 'from-blue-600 to-indigo-600',
-    privacyShowDetails: true,
-    pfpType: 'initials',
-    pfpUrl: ''
-  };
-
-  // --- STATE INITIALIZATION ---
-  let users = loadStorageOrCookie(KEY_USERS, [DEFAULT_USER]);
+  // --- STATE ---
+  let users = loadStorageOrCookie(KEY_USERS, []);
   let appointments = loadStorageOrCookie(KEY_APPOINTMENTS, []);
-  let currentUsername = loadStorageOrCookie(KEY_CURRENT_USER, 'me');
-  let friendsMap = loadStorageOrCookie(KEY_FRIENDS, { me: [] });
+  let currentUsername = loadStorageOrCookie(KEY_CURRENT_USER, null);
+  let friendsMap = loadStorageOrCookie(KEY_FRIENDS, {});
   let currentLang = loadStorageOrCookie(KEY_LANG, 'en');
 
   let rawParam = getUrlParameter('user');
-  let viewingUsername = (rawParam && rawParam !== '?') ? rawParam : (currentUsername || 'me');
+  let viewingUsername = (rawParam && rawParam !== '?') ? rawParam : (currentUsername || null);
 
   let currentDate = new Date();
   let currentMonth = currentDate.getMonth();
@@ -351,14 +339,7 @@
   let currentActiveTab = 'calendar';
   let inboxFilter = 'pending';
 
-  // Save state to Cookies & LocalStorage immediately
-  saveStorageAndCookie(KEY_USERS, users);
-  saveStorageAndCookie(KEY_APPOINTMENTS, appointments);
-  saveStorageAndCookie(KEY_CURRENT_USER, currentUsername);
-  saveStorageAndCookie(KEY_FRIENDS, friendsMap);
-  saveStorageAndCookie(KEY_LANG, currentLang);
-
-  // --- DOM ELEMENTS ---
+  // DOM Elements
   const brandLink = document.getElementById('brandLink');
   const languageSelect = document.getElementById('languageSelect');
 
@@ -406,6 +387,12 @@
   const currentMonthYearLabel = document.getElementById('currentMonthYearLabel');
   const yearSelect = document.getElementById('yearSelect');
   const calendarGrid = document.getElementById('calendarGrid');
+
+  // Registration Gate Modal
+  const registrationGateModal = document.getElementById('registrationGateModal');
+  const registrationGateForm = document.getElementById('registrationGateForm');
+  const gateNameInput = document.getElementById('gateNameInput');
+  const gateHandleInput = document.getElementById('gateHandleInput');
 
   // Live Search Elements
   const liveUserSearchInput = document.getElementById('liveUserSearchInput');
@@ -471,11 +458,17 @@
 
   const toastContainer = document.getElementById('toastContainer');
 
-  // --- BOOT ---
+  // --- BOOT & REGISTRATION GATE CHECK ---
   function init() {
     languageSelect.value = currentLang;
 
-    if (!viewingUsername || viewingUsername === '?') viewingUsername = currentUsername || 'me';
+    // Check if account exists for current session
+    if (!currentUsername || users.length === 0) {
+      openRegistrationGateModal();
+    } else {
+      closeRegistrationGateModal();
+      if (!viewingUsername || viewingUsername === '?') viewingUsername = currentUsername;
+    }
 
     applyLanguageTranslations();
     setupYearSelect();
@@ -483,6 +476,51 @@
     updateUserDisplays();
     renderActiveView();
     refreshIcons();
+  }
+
+  function openRegistrationGateModal() {
+    registrationGateModal.classList.remove('hidden');
+    setTimeout(() => registrationGateModal.classList.add('modal-open'), 10);
+    refreshIcons();
+  }
+
+  function closeRegistrationGateModal() {
+    registrationGateModal.classList.remove('modal-open');
+    registrationGateModal.classList.add('hidden');
+  }
+
+  function handleGateSubmit(e) {
+    if (e && e.preventDefault) e.preventDefault();
+    const name = gateNameInput.value.trim();
+    const handle = gateHandleInput.value.trim().toLowerCase().replace(/[^a-z0-9_]/g, '');
+
+    if (!name || !handle) {
+      showToast('Please enter a valid Name and Handle.', 'error');
+      return;
+    }
+
+    const newUser = {
+      machineId: machineId,
+      username: handle,
+      name: name,
+      bio: 'Select any available day to request an appointment slot.',
+      color: 'from-blue-600 to-indigo-600',
+      privacyShowDetails: true,
+      pfpType: 'initials',
+      pfpUrl: ''
+    };
+
+    users.push(newUser);
+    currentUsername = handle;
+    if (!rawParam || rawParam === '?') viewingUsername = handle;
+
+    saveStorageAndCookie(KEY_USERS, users);
+    saveStorageAndCookie(KEY_CURRENT_USER, currentUsername);
+
+    closeRegistrationGateModal();
+    updateUserDisplays();
+    renderCalendar();
+    showToast(`Welcome ${name}! Your account is active.`, 'success');
   }
 
   // --- MULTILINGUAL i18n ENGINE ---
@@ -517,6 +555,13 @@
       saveStorageAndCookie(KEY_LANG, currentLang);
       applyLanguageTranslations();
       showToast(`Language set to ${currentLang.toUpperCase()}`, 'success');
+    });
+
+    registrationGateForm.addEventListener('submit', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      handleGateSubmit(e);
+      return false;
     });
 
     navCalendar.addEventListener('click', () => switchTab('calendar'));
@@ -711,7 +756,6 @@
       currentUsername = handle;
     }
 
-    // Instantly save to Cookie (1-Year expiration) & LocalStorage
     saveStorageAndCookie(KEY_USERS, users);
     viewingUsername = currentUsername;
     saveStorageAndCookie(KEY_CURRENT_USER, currentUsername);
@@ -1013,12 +1057,12 @@
 
   // --- USER DISPLAY & HOST VS GUEST AUTHORIZATION ---
   function updateUserDisplays() {
-    const curUser = getUser(currentUsername || 'me');
-    const viewUser = getUser(viewingUsername);
+    const curUser = getUser(currentUsername || 'user');
+    const viewUser = getUser(viewingUsername || 'user');
     const dict = I18N[currentLang] || I18N.en;
 
     renderUserAvatarElement(curUser, userAvatarContainer, userAvatarInitials, null);
-    userNameDisplay.textContent = curUser.name || `@${curUser.username}`;
+    userNameDisplay.textContent = curUser.name || dict.loginRegister;
 
     renderUserAvatarElement(viewUser, bannerAvatarContainer, bannerAvatarInitials, bannerAvatarImg);
     bannerName.textContent = `${viewUser.name}${dict.calendarTitleSuffix}`;
@@ -1112,7 +1156,7 @@
 
       const isToday = dateKey === todayStr;
 
-      const dayAppointments = appointments.filter(a => a.hostUsername.toLowerCase() === viewingUsername.toLowerCase() && a.dateStr === dateKey);
+      const dayAppointments = appointments.filter(a => a.hostUsername && a.hostUsername.toLowerCase() === (viewingUsername || '').toLowerCase() && a.dateStr === dateKey);
 
       const hasAccepted = dayAppointments.some(a => a.status === 'accepted');
       const hasPending = dayAppointments.some(a => a.status === 'pending');
@@ -1157,6 +1201,11 @@
       `;
 
       dayCell.addEventListener('click', () => {
+        if (!currentUsername) {
+          openRegistrationGateModal();
+          return;
+        }
+
         if (hasAccepted || hasPending) {
           const targetApt = dayAppointments.find(a => a.status === 'accepted') || dayAppointments.find(a => a.status === 'pending');
           openNoteInspectModal(targetApt, dateKey);
@@ -1350,7 +1399,7 @@
     inboxListContainer.innerHTML = '';
     const dict = I18N[currentLang] || I18N.en;
 
-    let hostAppointments = appointments.filter(a => currentUsername && a.hostUsername.toLowerCase() === currentUsername.toLowerCase());
+    let hostAppointments = appointments.filter(a => currentUsername && a.hostUsername && a.hostUsername.toLowerCase() === currentUsername.toLowerCase());
 
     if (inboxFilter !== 'all') {
       hostAppointments = hostAppointments.filter(a => a.status === inboxFilter);
@@ -1652,7 +1701,7 @@
   // --- SHARE LINK ---
   function copyShareLink() {
     const url = new URL(window.location.href);
-    url.searchParams.set('user', viewingUsername);
+    url.searchParams.set('user', viewingUsername || currentUsername || 'user');
 
     navigator.clipboard.writeText(url.toString()).then(() => {
       showToast(`Shareable calendar link copied!`, 'success');
