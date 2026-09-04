@@ -1,7 +1,8 @@
 /**
- * Chronos — Personal Availability & Booking Engine (Production v14.0 GunDB Realtime Mesh)
+ * Chronos — Personal Availability & Booking Engine (Production v14.1 GunDB Realtime Mesh)
  * Features:
  * - GunDB Peer-to-Peer Realtime Mesh: Internet-wide live synchronization via cloud WebSocket relays.
+ * - Friends graph on Gun (per-owner handles) + local cache.
  * - Global User Directory Search: Instant cloud search for any registered user on any device worldwide.
  * - Live Calendar & Inbox Sync: Realtime events on bookings, status changes, and profile edits.
  * - Dual Storage: 1-Year Cookie (`document.cookie`) + LocalStorage Machine ID persistence.
@@ -56,6 +57,41 @@
     setCookie(key, val);
   }
 
+  function cleanHandle(value) {
+    return String(value || '').trim().toLowerCase().replace(/^@/, '').replace(/[^a-z0-9_]/g, '');
+  }
+
+  function normalizeFriendsMap(raw) {
+    const out = {};
+    if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return out;
+    Object.keys(raw).forEach((ownerKey) => {
+      const owner = cleanHandle(ownerKey);
+      if (!owner) return;
+      const list = Array.isArray(raw[ownerKey]) ? raw[ownerKey] : [];
+      if (!out[owner]) out[owner] = [];
+      list.forEach((friend) => {
+        const handle = cleanHandle(friend);
+        if (handle && handle !== owner && out[owner].indexOf(handle) === -1) {
+          out[owner].push(handle);
+        }
+      });
+    });
+    return out;
+  }
+
+  function getFriendsList(owner) {
+    const me = cleanHandle(owner || currentUsername);
+    if (!me) return [];
+    return Array.isArray(friendsMap[me]) ? friendsMap[me].slice() : [];
+  }
+
+  function persistFriendsList(owner, list) {
+    const me = cleanHandle(owner || currentUsername);
+    if (!me) return;
+    friendsMap[me] = (list || []).map(cleanHandle).filter((h, i, arr) => h && h !== me && arr.indexOf(h) === i);
+    saveStorageAndCookie(KEY_FRIENDS, friendsMap);
+  }
+
   // --- STORAGE KEYS ---
   const KEY_MACHINE_ID = 'chronos_machine_id_v12';
   const KEY_USERS = 'chronos_users_v12';
@@ -69,24 +105,29 @@
   let dbScope = null;
   let dbUsers = null;
   let dbAppointments = null;
+  let dbFriends = null;
+  const friendsSubscribed = {};
 
   function initRealtimeDB() {
     try {
       if (window.Gun) {
         gunInstance = window.Gun([
           'https://gun-manhattan.herokuapp.com/gun',
+          'https://gun-us.herokuapp.com/gun',
           'https://relay.peer.ooo/gun',
           'https://peer.wall.org/gun'
         ]);
         dbScope = gunInstance.get('chronos_production_mesh_v14');
         dbUsers = dbScope.get('users');
         dbAppointments = dbScope.get('appointments');
+        dbFriends = dbScope.get('friends');
 
         // Realtime Listener: All Users
         dbUsers.map().on((userData, handle) => {
-          if (!userData || !userData.username) return;
-          const cleanH = String(userData.username).toLowerCase().replace(/^@/, '');
-          const existingIdx = users.findIndex(u => u.username.toLowerCase().replace(/^@/, '') === cleanH);
+          if (!userData || typeof userData !== 'object' || !userData.username) return;
+          const cleanH = cleanHandle(userData.username);
+          if (!cleanH) return;
+          const existingIdx = users.findIndex(u => cleanHandle(u.username) === cleanH);
           const safeUser = {
             username: cleanH,
             name: userData.name || cleanH,
@@ -111,8 +152,8 @@
           const existingIdx = appointments.findIndex(a => a.id === aptData.id);
           const safeApt = {
             id: aptData.id,
-            hostUsername: String(aptData.hostUsername || '').toLowerCase().replace(/^@/, ''),
-            requesterUsername: String(aptData.requesterUsername || '').toLowerCase().replace(/^@/, ''),
+            hostUsername: cleanHandle(aptData.hostUsername),
+            requesterUsername: cleanHandle(aptData.requesterUsername),
             requesterName: aptData.requesterName || '',
             dateStr: aptData.dateStr || '',
             startTime: aptData.startTime || '',
@@ -135,6 +176,8 @@
 
         if (currentUsername) {
           dbPushUser(getUser(currentUsername));
+          subscribeFriends(currentUsername);
+          hydrateLocalFriendsToDb();
         }
       }
     } catch (e) {}
@@ -142,20 +185,19 @@
 
   function dbPushUser(userObj) {
     if (!userObj || !userObj.username) return;
-    const cleanHandle = String(userObj.username).toLowerCase().replace(/^@/, '');
-    if (dbUsers) {
-      try {
-        dbUsers.get(cleanHandle).put({
-          username: cleanHandle,
-          name: userObj.name || cleanHandle,
-          bio: userObj.bio || '',
-          color: userObj.color || 'from-blue-600 to-indigo-600',
-          privacyShowDetails: userObj.privacyShowDetails !== false,
-          pfpType: userObj.pfpType || 'initials',
-          pfpUrl: userObj.pfpUrl || ''
-        });
-      } catch (e) {}
-    }
+    const handle = cleanHandle(userObj.username);
+    if (!handle || !dbUsers) return;
+    try {
+      dbUsers.get(handle).put({
+        username: handle,
+        name: userObj.name || handle,
+        bio: userObj.bio || '',
+        color: userObj.color || 'from-blue-600 to-indigo-600',
+        privacyShowDetails: userObj.privacyShowDetails !== false,
+        pfpType: userObj.pfpType || 'initials',
+        pfpUrl: userObj.pfpUrl || ''
+      });
+    } catch (e) {}
   }
 
   function dbPushAppointment(aptObj) {
@@ -164,8 +206,8 @@
       try {
         dbAppointments.get(aptObj.id).put({
           id: aptObj.id,
-          hostUsername: String(aptObj.hostUsername || '').toLowerCase().replace(/^@/, ''),
-          requesterUsername: String(aptObj.requesterUsername || '').toLowerCase().replace(/^@/, ''),
+          hostUsername: cleanHandle(aptObj.hostUsername),
+          requesterUsername: cleanHandle(aptObj.requesterUsername),
           requesterName: aptObj.requesterName || '',
           dateStr: aptObj.dateStr || '',
           startTime: aptObj.startTime || '',
@@ -187,6 +229,67 @@
         dbAppointments.get(aptId).put({ deleted: true });
       } catch (e) {}
     }
+  }
+
+  function dbPushFriend(owner, friendHandle) {
+    const me = cleanHandle(owner);
+    const friend = cleanHandle(friendHandle);
+    if (!dbFriends || !me || !friend || me === friend) return;
+    try {
+      dbFriends.get(me).get(friend).put({
+        username: friend,
+        addedAt: new Date().toISOString()
+      });
+    } catch (e) {}
+  }
+
+  function dbRemoveFriend(owner, friendHandle) {
+    const me = cleanHandle(owner);
+    const friend = cleanHandle(friendHandle);
+    if (!dbFriends || !me || !friend) return;
+    try {
+      dbFriends.get(me).get(friend).put(null);
+    } catch (e) {}
+  }
+
+  function hydrateLocalFriendsToDb() {
+    getFriendsList(currentUsername).forEach((friend) => dbPushFriend(currentUsername, friend));
+  }
+
+  function subscribeFriends(owner) {
+    const me = cleanHandle(owner);
+    if (!dbFriends || !me || friendsSubscribed[me]) return;
+    friendsSubscribed[me] = true;
+    try {
+      dbFriends.get(me).map().on((data, key) => {
+        if (cleanHandle(currentUsername) !== me) return;
+        const friend = cleanHandle((data && data.username) || key);
+        if (!friend || friend === me || friend.charAt(0) === '_') return;
+
+        const list = getFriendsList(me);
+        if (!data) {
+          persistFriendsList(me, list.filter((h) => h !== friend));
+        } else if (list.indexOf(friend) === -1) {
+          persistFriendsList(me, list.concat([friend]));
+        }
+
+        if (currentActiveTab === 'friends') renderFriends();
+        updateUserDisplays();
+      });
+    } catch (e) {}
+  }
+
+  function openFriendCalendar(handle) {
+    viewingUsername = cleanHandle(handle);
+    if (!viewingUsername) return;
+    try {
+      const url = new URL(window.location.href);
+      url.searchParams.set('user', viewingUsername);
+      window.history.replaceState({}, '', url.toString());
+    } catch (e) {}
+    switchTab('calendar');
+    updateUserDisplays();
+    renderCalendar();
   }
 
   // Persistent Machine / Device ID
@@ -451,12 +554,12 @@
   // --- STATE ---
   let users = loadStorageOrCookie(KEY_USERS, []);
   let appointments = loadStorageOrCookie(KEY_APPOINTMENTS, []);
-  let currentUsername = loadStorageOrCookie(KEY_CURRENT_USER, null);
-  let friendsMap = loadStorageOrCookie(KEY_FRIENDS, {});
+  let currentUsername = cleanHandle(loadStorageOrCookie(KEY_CURRENT_USER, null));
+  let friendsMap = normalizeFriendsMap(loadStorageOrCookie(KEY_FRIENDS, {}));
   let currentLang = loadStorageOrCookie(KEY_LANG, 'en');
 
   let rawParam = getUrlParameter('user');
-  let viewingUsername = (rawParam && rawParam !== '?') ? rawParam : (currentUsername || null);
+  let viewingUsername = (rawParam && rawParam !== '?') ? cleanHandle(rawParam) : (currentUsername || null);
 
   let currentDate = new Date();
   let currentMonth = currentDate.getMonth();
@@ -589,10 +692,10 @@
     languageSelect.value = currentLang;
 
     if (rawParam && rawParam !== '?') {
-      const cleanParam = rawParam.trim().toLowerCase().replace(/^@/, '');
+      const cleanParam = cleanHandle(rawParam);
       if (cleanParam) {
         viewingUsername = cleanParam;
-        let existing = users.find(u => u.username.toLowerCase().replace(/^@/, '') === cleanParam);
+        let existing = users.find(u => cleanHandle(u.username) === cleanParam);
         if (!existing) {
           const colors = ['from-blue-600 to-indigo-600', 'from-purple-600 to-pink-600', 'from-emerald-600 to-teal-600', 'from-orange-500 to-amber-600'];
           users.push({
@@ -643,7 +746,7 @@
   function handleGateSubmit(e) {
     if (e && e.preventDefault) e.preventDefault();
     const name = gateNameInput.value.trim();
-    const handle = gateHandleInput.value.trim().toLowerCase().replace(/[^a-z0-9_]/g, '');
+    const handle = cleanHandle(gateHandleInput.value);
 
     if (!name || !handle) {
       showToast('Please enter a valid Name and Handle.', 'error');
@@ -668,6 +771,7 @@
     saveStorageAndCookie(KEY_USERS, users);
     saveStorageAndCookie(KEY_CURRENT_USER, currentUsername);
     dbPushUser(newUser);
+    subscribeFriends(currentUsername);
 
     closeRegistrationGateModal();
     updateUserDisplays();
@@ -874,7 +978,7 @@
   // --- CREATE ACCOUNT & LOGIN ENGINE ---
   function handleCreateAccount(e) {
     if (e && e.preventDefault) e.preventDefault();
-    const handle = newUsername.value.trim().toLowerCase().replace(/[^a-z0-9_]/g, '');
+    const handle = cleanHandle(newUsername.value);
     const name = newDisplayName.value.trim();
     const pfpType = pfpTypeSelect.value;
     const pfpUrl = pfpUrlInput.value.trim();
@@ -884,7 +988,7 @@
       return;
     }
 
-    let targetUser = users.find(u => u.username.toLowerCase() === handle);
+    let targetUser = users.find(u => cleanHandle(u.username) === handle);
 
     if (targetUser) {
       targetUser.name = name;
@@ -912,6 +1016,8 @@
     viewingUsername = currentUsername;
     saveStorageAndCookie(KEY_CURRENT_USER, currentUsername);
     dbPushUser(targetUser || users[users.length - 1]);
+    subscribeFriends(currentUsername);
+    hydrateLocalFriendsToDb();
 
     newUsername.value = '';
     newDisplayName.value = '';
@@ -1003,9 +1109,9 @@
       const item = document.createElement('div');
       item.className = 'p-2.5 rounded-xl bg-white/5 hover:bg-white/10 cursor-pointer flex items-center justify-between space-x-3 transition border border-white/5';
 
-      const userFriends = (friendsMap[currentUsername] || []).map(f => f.toLowerCase().replace(/^@/, ''));
-      const cleanUserObjHandle = userObj.username.toLowerCase().replace(/^@/, '');
-      const isFriend = userFriends.includes(cleanUserObjHandle);
+      const userFriends = getFriendsList(currentUsername);
+      const cleanUserObjHandle = cleanHandle(userObj.username);
+      const isFriend = userFriends.indexOf(cleanUserObjHandle) !== -1;
 
       item.innerHTML = `
         <div class="flex items-center space-x-3 min-w-0">
@@ -1022,7 +1128,7 @@
           <button type="button" class="view-cal-btn px-2.5 py-1 rounded-lg bg-apple-accent/20 hover:bg-apple-accent/30 text-apple-accent text-[11px] font-semibold transition">
             ${dict.navCalendar}
           </button>
-          ${!isFriend && cleanUserObjHandle !== (currentUsername || '').toLowerCase().replace(/^@/, '') ? `
+          ${!isFriend && cleanUserObjHandle !== cleanHandle(currentUsername) ? `
             <button type="button" class="add-friend-quick-btn px-2.5 py-1 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-[11px] font-semibold transition">
               + ${dict.addFriendBtn}
             </button>
@@ -1032,12 +1138,9 @@
 
       item.querySelector('.view-cal-btn').addEventListener('click', (e) => {
         e.stopPropagation();
-        viewingUsername = userObj.username;
-        switchTab('calendar');
-        updateUserDisplays();
-        renderCalendar();
         dropdownContainer.classList.add('hidden');
         if (isModal) closeAddFriendModal();
+        openFriendCalendar(userObj.username);
       });
 
       const addBtn = item.querySelector('.add-friend-quick-btn');
@@ -1097,8 +1200,8 @@
   }
 
   function getUser(username) {
-    const clean = (username || '').trim().toLowerCase().replace(/^@/, '');
-    const found = users.find(u => u.username.toLowerCase().replace(/^@/, '') === clean);
+    const clean = cleanHandle(username);
+    const found = users.find(u => cleanHandle(u.username) === clean);
     if (found) return found;
 
     const formattedName = clean ? (clean.charAt(0).toUpperCase() + clean.slice(1)) : 'User';
@@ -1216,7 +1319,7 @@
   function handleSaveProfileEdit(e) {
     if (e && e.preventDefault) e.preventDefault();
     const newName = editDisplayNameInput.value.trim();
-    const newHandle = editUsernameInput.value.trim().toLowerCase().replace(/[^a-z0-9_]/g, '');
+    const newHandle = cleanHandle(editUsernameInput.value);
     const newBio = editBioInput.value.trim();
 
     if (!newName || !newHandle) {
@@ -1225,7 +1328,7 @@
     }
 
     const curUser = getUser(currentUsername);
-    const oldUsername = curUser.username;
+    const oldUsername = cleanHandle(curUser.username);
 
     curUser.name = newName;
     curUser.bio = newBio;
@@ -1235,6 +1338,14 @@
       currentUsername = newHandle;
       viewingUsername = newHandle;
       saveStorageAndCookie(KEY_CURRENT_USER, currentUsername);
+      const moved = getFriendsList(oldUsername);
+      persistFriendsList(newHandle, moved);
+      persistFriendsList(oldUsername, []);
+      moved.forEach((friend) => {
+        dbPushFriend(newHandle, friend);
+        dbRemoveFriend(oldUsername, friend);
+      });
+      subscribeFriends(newHandle);
     }
 
     saveStorageAndCookie(KEY_USERS, users);
@@ -1260,7 +1371,7 @@
     bannerHandle.textContent = `@${viewUser.username}`;
     bannerBio.textContent = viewUser.bio || dict.bannerSubtitle;
 
-    const isSelf = currentUsername && (currentUsername.toLowerCase() === viewingUsername.toLowerCase());
+    const isSelf = currentUsername && (cleanHandle(currentUsername) === cleanHandle(viewingUsername));
     
     if (isSelf) {
       // HOST VIEW (Owner of the calendar)
@@ -1281,8 +1392,8 @@
       viewModeIndicator.className = 'px-3 py-1.5 rounded-full text-[11px] font-medium bg-blue-500/10 text-blue-400 border border-blue-500/20 flex items-center space-x-1.5';
       viewModeText.textContent = `${dict.guestView} (${viewUser.name})`;
 
-      const userFriends = friendsMap[currentUsername] || [];
-      if (userFriends.includes(viewingUsername)) {
+      const userFriends = getFriendsList(currentUsername);
+      if (userFriends.indexOf(cleanHandle(viewingUsername)) !== -1) {
         addFriendBtn.classList.add('hidden');
       } else {
         addFriendBtn.classList.remove('hidden');
@@ -1305,7 +1416,7 @@
 
   function updateInboxBadgeCount() {
     if (!currentUsername) return;
-    const hostPending = appointments.filter(a => a.hostUsername.toLowerCase() === currentUsername.toLowerCase() && a.status === 'pending');
+    const hostPending = appointments.filter(a => a.hostUsername && cleanHandle(a.hostUsername) === cleanHandle(currentUsername) && a.status === 'pending');
     if (hostPending.length > 0) {
       inboxBadgeCount.textContent = hostPending.length;
       inboxBadgeCount.classList.remove('hidden');
@@ -1347,7 +1458,7 @@
 
       const isToday = dateKey === todayStr;
 
-      const dayAppointments = appointments.filter(a => a.hostUsername && a.hostUsername.toLowerCase() === (viewingUsername || '').toLowerCase() && a.dateStr === dateKey);
+      const dayAppointments = appointments.filter(a => a.hostUsername && cleanHandle(a.hostUsername) === cleanHandle(viewingUsername) && a.dateStr === dateKey);
 
       const hasAccepted = dayAppointments.some(a => a.status === 'accepted');
       const hasPending = dayAppointments.some(a => a.status === 'pending');
@@ -1517,8 +1628,8 @@
 
     const newAppointment = {
       id: 'apt_' + Date.now() + '_' + Math.random().toString(36).substr(2, 4),
-      hostUsername: viewingUsername.toLowerCase().replace(/^@/, ''),
-      requesterUsername: (currentUsername || 'guest').toLowerCase().replace(/^@/, ''),
+      hostUsername: cleanHandle(viewingUsername),
+      requesterUsername: cleanHandle(currentUsername) || 'guest',
       requesterName: requesterName,
       dateStr: selectedDateForBooking,
       startTime: start,
@@ -1542,7 +1653,7 @@
   // --- NOTE INSPECTOR ---
   function openNoteInspectModal(apt, dateKey) {
     const viewUser = getUser(viewingUsername);
-    const isSelf = currentUsername && (currentUsername.toLowerCase() === viewingUsername.toLowerCase());
+    const isSelf = currentUsername && (cleanHandle(currentUsername) === cleanHandle(viewingUsername));
     const showDetails = isSelf || (viewUser.privacyShowDetails !== false);
     const dict = I18N[currentLang] || I18N.en;
 
@@ -1591,7 +1702,7 @@
     inboxListContainer.innerHTML = '';
     const dict = I18N[currentLang] || I18N.en;
 
-    let hostAppointments = appointments.filter(a => currentUsername && a.hostUsername && a.hostUsername.toLowerCase() === currentUsername.toLowerCase());
+    let hostAppointments = appointments.filter(a => currentUsername && a.hostUsername && cleanHandle(a.hostUsername) === cleanHandle(currentUsername));
 
     if (inboxFilter !== 'all') {
       hostAppointments = hostAppointments.filter(a => a.status === inboxFilter);
@@ -1722,7 +1833,7 @@
   function renderFriends() {
     friendsGrid.innerHTML = '';
     const dict = I18N[currentLang] || I18N.en;
-    const userFriends = currentUsername ? (friendsMap[currentUsername] || []) : [];
+    const userFriends = getFriendsList(currentUsername);
 
     if (userFriends.length === 0) {
       friendsGrid.innerHTML = `
@@ -1738,7 +1849,8 @@
     }
 
     userFriends.forEach(fHandle => {
-      const friendObj = getUser(fHandle);
+      const friendHandle = cleanHandle(fHandle);
+      const friendObj = getUser(friendHandle);
       const card = document.createElement('div');
       card.className = 'p-4 rounded-3xl bg-apple-cardDark border border-apple-borderDark backdrop-blur-2xl shadow-lg flex items-center justify-between space-x-3 transition hover:border-white/20';
 
@@ -1749,16 +1861,16 @@
           </div>
           <div class="min-w-0">
             <h4 class="text-xs sm:text-sm font-bold text-white truncate">${escapeHtml(friendObj.name)}</h4>
-            <p class="text-[11px] text-apple-graySub font-mono">@${escapeHtml(friendObj.username)}</p>
+            <p class="text-[11px] text-apple-graySub font-mono">@${escapeHtml(friendHandle)}</p>
           </div>
         </div>
 
         <div class="flex items-center space-x-1.5">
-          <button type="button" class="view-friend-cal-btn px-3 py-1.5 rounded-xl bg-white/10 hover:bg-white/20 text-white text-xs font-semibold border border-white/15 transition flex items-center space-x-1" data-username="${friendObj.username}">
+          <button type="button" class="view-friend-cal-btn px-3 py-1.5 rounded-xl bg-white/10 hover:bg-white/20 text-white text-xs font-semibold border border-white/15 transition flex items-center space-x-1" data-username="${friendHandle}">
             <i data-lucide="calendar" class="w-3.5 h-3.5 text-apple-accent"></i>
             <span>${dict.navCalendar}</span>
           </button>
-          <button type="button" class="remove-friend-btn p-1.5 rounded-xl bg-white/5 hover:bg-red-500/20 text-zinc-400 hover:text-red-400 border border-white/10 transition" data-username="${friendObj.username}">
+          <button type="button" class="remove-friend-btn p-1.5 rounded-xl bg-white/5 hover:bg-red-500/20 text-zinc-400 hover:text-red-400 border border-white/10 transition" data-username="${friendHandle}">
             <i data-lucide="user-x" class="w-3.5 h-3.5"></i>
           </button>
         </div>
@@ -1769,10 +1881,7 @@
 
     friendsGrid.querySelectorAll('.view-friend-cal-btn').forEach(btn => {
       btn.addEventListener('click', (e) => {
-        viewingUsername = e.currentTarget.getAttribute('data-username');
-        switchTab('calendar');
-        updateUserDisplays();
-        renderCalendar();
+        openFriendCalendar(e.currentTarget.getAttribute('data-username'));
       });
     });
 
@@ -1786,31 +1895,31 @@
   }
 
   function addFriendToCurrentUser(username) {
-    if (!currentUsername) return;
+    if (!currentUsername) {
+      showToast('Create an account first, then add friends.', 'error');
+      return;
+    }
 
-    const cleanUsername = username.trim().toLowerCase().replace(/^@/, '');
+    const cleanUsername = cleanHandle(username);
     if (!cleanUsername) return;
 
-    const cleanCurrent = currentUsername.trim().toLowerCase().replace(/^@/, '');
+    const cleanCurrent = cleanHandle(currentUsername);
 
     if (cleanUsername === cleanCurrent) {
       showToast('You cannot add yourself as a friend.', 'error');
       return;
     }
 
-    if (!friendsMap[currentUsername]) friendsMap[currentUsername] = [];
-
-    const existingFriends = friendsMap[currentUsername].map(f => f.toLowerCase().replace(/^@/, ''));
-    if (existingFriends.includes(cleanUsername)) {
+    const existingFriends = getFriendsList(cleanCurrent);
+    if (existingFriends.indexOf(cleanUsername) !== -1) {
       showToast(`@${cleanUsername} is already in your friends list.`, 'info');
       return;
     }
 
-    // Auto-register user in local directory if not present
-    let knownUser = users.find(u => u.username.toLowerCase().replace(/^@/, '') === cleanUsername);
+    let knownUser = users.find(u => cleanHandle(u.username) === cleanUsername);
     if (!knownUser) {
       const colors = ['from-blue-600 to-indigo-600', 'from-purple-600 to-pink-600', 'from-emerald-600 to-teal-600', 'from-orange-500 to-amber-600'];
-      const newUser = {
+      knownUser = {
         machineId: 'remote_' + cleanUsername,
         username: cleanUsername,
         name: cleanUsername.charAt(0).toUpperCase() + cleanUsername.slice(1),
@@ -1820,12 +1929,13 @@
         pfpType: 'initials',
         pfpUrl: ''
       };
-      users.push(newUser);
+      users.push(knownUser);
       saveStorageAndCookie(KEY_USERS, users);
     }
 
-    friendsMap[currentUsername].push(cleanUsername);
-    saveStorageAndCookie(KEY_FRIENDS, friendsMap);
+    persistFriendsList(cleanCurrent, existingFriends.concat([cleanUsername]));
+    dbPushFriend(cleanCurrent, cleanUsername);
+    subscribeFriends(cleanCurrent);
 
     updateUserDisplays();
     renderFriends();
@@ -1833,14 +1943,14 @@
   }
 
   function removeFriendFromCurrentUser(username) {
-    if (currentUsername && friendsMap[currentUsername]) {
-      const cleanTarget = username.trim().toLowerCase().replace(/^@/, '');
-      friendsMap[currentUsername] = friendsMap[currentUsername].filter(u => u.toLowerCase().replace(/^@/, '') !== cleanTarget);
-      saveStorageAndCookie(KEY_FRIENDS, friendsMap);
-      renderFriends();
-      updateUserDisplays();
-      showToast(`Removed @${cleanTarget}.`, 'info');
-    }
+    if (!currentUsername) return;
+    const cleanCurrent = cleanHandle(currentUsername);
+    const cleanTarget = cleanHandle(username);
+    persistFriendsList(cleanCurrent, getFriendsList(cleanCurrent).filter((h) => h !== cleanTarget));
+    dbRemoveFriend(cleanCurrent, cleanTarget);
+    renderFriends();
+    updateUserDisplays();
+    showToast(`Removed @${cleanTarget}.`, 'info');
   }
 
   // --- FRIENDS MODAL ---
@@ -1901,13 +2011,15 @@
       `;
 
       item.addEventListener('click', () => {
-        currentUsername = u.username;
-        viewingUsername = u.username;
+        currentUsername = cleanHandle(u.username);
+        viewingUsername = currentUsername;
         saveStorageAndCookie(KEY_CURRENT_USER, currentUsername);
+        subscribeFriends(currentUsername);
+        hydrateLocalFriendsToDb();
         closeAuthModal();
         updateUserDisplays();
         renderCalendar();
-        showToast(`Logged into ${u.name} (@${u.username})`, 'success');
+        showToast(`Logged into ${u.name} (@${currentUsername})`, 'success');
       });
 
       registeredUsersList.appendChild(item);
