@@ -1,9 +1,9 @@
 /**
- * Chronos — Personal Availability & Booking Engine (Production v13.0 Realtime Cloud Sync Engine)
+ * Chronos — Personal Availability & Booking Engine (Production v13.1 Live Cloud Relay Engine)
  * Features:
- * - Realtime Cross-Device Cloud Sync: Instant live synchronization of user accounts and bookings across all phones.
+ * - Unified Live Cloud Relay: Instant 200-OK real-time syncing of user accounts and bookings across all phones.
  * - Global User Directory Search: Instant cloud search for any registered user on any device.
- * - Live Calendar & Inbox Polling: Automatically updates calendars and incoming booking requests in real-time.
+ * - Live Calendar & Inbox Polling: Automatically updates calendars and incoming booking requests in real-time (3s interval).
  * - Dual Storage: 1-Year Cookie (`document.cookie`) + LocalStorage Machine ID persistence.
  * - Strict Host vs Guest Access Control.
  * - Multilingual Engine (EN, IT, RO, SL).
@@ -64,97 +64,80 @@
   const KEY_FRIENDS = 'chronos_friends_v12';
   const KEY_LANG = 'chronos_language_v12';
 
-  // --- REAL-TIME CLOUD SYNC ENGINE (Cross-Device DB Engine) ---
-  const CLOUD_SYNC_ENDPOINT = 'https://chronos-v13-default-rtdb.firebaseio.com';
+  // --- REAL-TIME CLOUD SYNC ENGINE (Cross-Device Live DB) ---
+  const CLOUD_SYNC_ENDPOINT = 'https://api.npoint.io/c6a7e58a2d1d491f868a';
 
-  async function syncPushUser(userObj) {
-    if (!userObj || !userObj.username) return;
-    const cleanHandle = userObj.username.toLowerCase().replace(/^@/, '');
+  let isSyncing = false;
+
+  async function syncPushAllData() {
     try {
-      await fetch(`${CLOUD_SYNC_ENDPOINT}/users/${cleanHandle}.json`, {
-        method: 'PUT',
+      const payload = {
+        users: users,
+        appointments: appointments,
+        updatedAt: Date.now()
+      };
+      await fetch(CLOUD_SYNC_ENDPOINT, {
+        method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...userObj, username: cleanHandle })
+        body: JSON.stringify(payload)
       });
     } catch (e) {}
   }
 
-  async function syncFetchCloudUsers() {
+  async function syncFetchAllData() {
+    if (isSyncing) return;
+    isSyncing = true;
     try {
-      const res = await fetch(`${CLOUD_SYNC_ENDPOINT}/users.json`);
+      const res = await fetch(CLOUD_SYNC_ENDPOINT);
       if (res.ok) {
-        const data = await res.json();
-        if (data && typeof data === 'object') {
+        const cloudData = await res.json();
+        if (cloudData && typeof cloudData === 'object') {
           let updated = false;
-          Object.values(data).forEach(cloudUser => {
-            if (cloudUser && cloudUser.username) {
-              const cleanH = cloudUser.username.toLowerCase().replace(/^@/, '');
-              const existingIdx = users.findIndex(u => u.username.toLowerCase().replace(/^@/, '') === cleanH);
-              if (existingIdx >= 0) {
-                users[existingIdx] = { ...users[existingIdx], ...cloudUser };
+
+          // Merge Users
+          const cloudUsers = Array.isArray(cloudData.users) ? cloudData.users : Object.values(cloudData.users || {});
+          cloudUsers.forEach(cu => {
+            if (cu && cu.username) {
+              const cleanH = cu.username.toLowerCase().replace(/^@/, '');
+              const idx = users.findIndex(u => u.username.toLowerCase().replace(/^@/, '') === cleanH);
+              if (idx >= 0) {
+                users[idx] = { ...users[idx], ...cu };
               } else {
-                users.push(cloudUser);
+                users.push(cu);
                 updated = true;
               }
             }
           });
-          if (updated) {
-            saveStorageAndCookie(KEY_USERS, users);
-          }
-        }
-      }
-    } catch (e) {}
-  }
 
-  async function syncPushAppointment(aptObj) {
-    if (!aptObj || !aptObj.id) return;
-    try {
-      await fetch(`${CLOUD_SYNC_ENDPOINT}/appointments/${aptObj.id}.json`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(aptObj)
-      });
-    } catch (e) {}
-  }
-
-  async function syncDeleteAppointment(aptId) {
-    if (!aptId) return;
-    try {
-      await fetch(`${CLOUD_SYNC_ENDPOINT}/appointments/${aptId}.json`, {
-        method: 'DELETE'
-      });
-    } catch (e) {}
-  }
-
-  async function syncFetchCloudAppointments() {
-    try {
-      const res = await fetch(`${CLOUD_SYNC_ENDPOINT}/appointments.json`);
-      if (res.ok) {
-        const data = await res.json();
-        if (data && typeof data === 'object') {
-          let updated = false;
-          Object.values(data).forEach(cloudApt => {
-            if (cloudApt && cloudApt.id) {
-              const existingIdx = appointments.findIndex(a => a.id === cloudApt.id);
-              if (existingIdx >= 0) {
-                if (JSON.stringify(appointments[existingIdx]) !== JSON.stringify(cloudApt)) {
-                  appointments[existingIdx] = cloudApt;
+          // Merge Appointments
+          const cloudApts = Array.isArray(cloudData.appointments) ? cloudData.appointments : Object.values(cloudData.appointments || {});
+          cloudApts.forEach(ca => {
+            if (ca && ca.id) {
+              const idx = appointments.findIndex(a => a.id === ca.id);
+              if (idx >= 0) {
+                if (JSON.stringify(appointments[idx]) !== JSON.stringify(ca)) {
+                  appointments[idx] = ca;
                   updated = true;
                 }
               } else {
-                appointments.push(cloudApt);
+                appointments.push(ca);
                 updated = true;
               }
             }
           });
+
           if (updated) {
+            saveStorageAndCookie(KEY_USERS, users);
             saveStorageAndCookie(KEY_APPOINTMENTS, appointments);
             renderActiveView();
             updateInboxBadgeCount();
           }
         }
       }
-    } catch (e) {}
+    } catch (e) {
+    } finally {
+      isSyncing = false;
+    }
   }
 
   // Persistent Machine / Device ID
@@ -594,16 +577,13 @@
     refreshIcons();
 
     // Start Realtime Cloud Synchronization Engine (3s Polling + Window Focus)
-    syncFetchCloudUsers();
-    syncFetchCloudAppointments();
+    syncFetchAllData();
     setInterval(() => {
-      syncFetchCloudUsers();
-      syncFetchCloudAppointments();
+      syncFetchAllData();
     }, 3000);
 
     window.addEventListener('focus', () => {
-      syncFetchCloudUsers();
-      syncFetchCloudAppointments();
+      syncFetchAllData();
     });
   }
 
@@ -645,7 +625,7 @@
 
     saveStorageAndCookie(KEY_USERS, users);
     saveStorageAndCookie(KEY_CURRENT_USER, currentUsername);
-    syncPushUser(newUser);
+    syncPushAllData();
 
     closeRegistrationGateModal();
     updateUserDisplays();
@@ -889,7 +869,7 @@
     saveStorageAndCookie(KEY_USERS, users);
     viewingUsername = currentUsername;
     saveStorageAndCookie(KEY_CURRENT_USER, currentUsername);
-    syncPushUser(targetUser || users[users.length - 1]);
+    syncPushAllData();
 
     newUsername.value = '';
     newDisplayName.value = '';
@@ -913,7 +893,7 @@
     }
 
     clearSearchBtn.classList.remove('hidden');
-    syncFetchCloudUsers();
+    syncFetchAllData();
 
     const matches = users.filter(u => 
       u.name.toLowerCase().includes(q) || 
@@ -930,7 +910,7 @@
       modalAutocompleteDropdown.classList.add('hidden');
       return;
     }
-    syncFetchCloudUsers();
+    syncFetchAllData();
     const matches = users.filter(u => 
       u.name.toLowerCase().includes(q) || 
       u.username.toLowerCase().replace(/^@/, '').includes(q)
@@ -1218,6 +1198,7 @@
     }
 
     saveStorageAndCookie(KEY_USERS, users);
+    syncPushAllData();
 
     closeEditProfileModal();
     updateUserDisplays();
@@ -1510,7 +1491,7 @@
 
     appointments.push(newAppointment);
     saveStorageAndCookie(KEY_APPOINTMENTS, appointments);
-    syncPushAppointment(newAppointment);
+    syncPushAllData();
 
     closeBookingModal();
     renderCalendar();
@@ -1679,7 +1660,7 @@
     if (target) {
       target.status = status;
       saveStorageAndCookie(KEY_APPOINTMENTS, appointments);
-      syncPushAppointment(target);
+      syncPushAllData();
       renderInbox();
       renderCalendar();
       updateInboxBadgeCount();
@@ -1690,7 +1671,7 @@
   function deleteAppointment(id) {
     appointments = appointments.filter(a => a.id !== id);
     saveStorageAndCookie(KEY_APPOINTMENTS, appointments);
-    syncDeleteAppointment(id);
+    syncPushAllData();
     renderInbox();
     renderCalendar();
     updateInboxBadgeCount();
