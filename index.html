@@ -18,7 +18,7 @@
   <script src="https://unpkg.com/lucide@latest"></script>
 
   <!-- Custom Mobile & Apple Design System Styles -->
-  <link rel="stylesheet" href="styles.css?v=9.1">
+  <link rel="stylesheet" href="styles.css?v=10.0">
 
   <script>
     tailwind.config = {
@@ -297,37 +297,6 @@
 
   </main>
 
-  <!-- ONBOARDING REGISTRATION MODAL -->
-  <div id="onboardingModal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/90 backdrop-blur-2xl hidden opacity-0 transition-all duration-300">
-    <div class="relative w-full max-w-md bg-apple-cardDark border border-apple-borderDark rounded-3xl p-6 sm:p-8 shadow-2xl text-center space-y-5">
-      <div class="w-14 h-14 rounded-2xl bg-gradient-to-tr from-blue-600 to-indigo-500 flex items-center justify-center text-white mx-auto shadow-lg shadow-blue-500/25 border border-white/20">
-        <i data-lucide="calendar" class="w-7 h-7"></i>
-      </div>
-      <div>
-        <h2 class="text-xl font-bold text-white tracking-tight">Welcome to Chronos</h2>
-        <p class="text-xs text-apple-graySub mt-1">Set up your profile handle to view availability, request appointments, or share your own calendar.</p>
-      </div>
-
-      <form id="onboardingForm" class="space-y-3.5 text-left">
-        <div>
-          <label class="block text-xs font-semibold text-zinc-300 mb-1">Your Real Name / Display Name</label>
-          <input type="text" id="onboardingNameInput" placeholder="e.g. Alex Jenkins" required class="w-full bg-black/60 border border-white/15 rounded-xl px-3.5 py-2.5 text-xs text-white focus:outline-none focus:border-apple-accent transition">
-        </div>
-        <div>
-          <label class="block text-xs font-semibold text-zinc-300 mb-1">Choose Username Handle</label>
-          <div class="relative">
-            <span class="absolute left-3.5 top-2.5 text-xs text-zinc-500 font-mono">@</span>
-            <input type="text" id="onboardingHandleInput" placeholder="alex" required class="w-full bg-black/60 border border-white/15 rounded-xl pl-8 pr-3.5 py-2.5 text-xs text-white font-mono focus:outline-none focus:border-apple-accent transition">
-          </div>
-        </div>
-        <button type="submit" class="w-full py-3 rounded-2xl bg-apple-accent hover:bg-apple-accentHover text-white text-xs font-bold shadow-lg shadow-blue-500/30 transition active:scale-95 flex items-center justify-center space-x-2">
-          <span>Get Started</span>
-          <i data-lucide="arrow-right" class="w-4 h-4"></i>
-        </button>
-      </form>
-    </div>
-  </div>
-
   <!-- MODAL 1: BOOKING MODAL -->
   <div id="bookingModal" class="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/75 backdrop-blur-md hidden opacity-0 transition-all duration-300">
     <div class="relative w-full max-w-lg bg-apple-cardDark border-t sm:border border-apple-borderDark rounded-t-[32px] sm:rounded-3xl p-5 sm:p-8 shadow-2xl backdrop-blur-2xl transform translate-y-full sm:translate-y-0 sm:scale-95 transition-all duration-300 max-h-[90dvh] overflow-y-auto pb-8 sm:pb-8">
@@ -498,14 +467,14 @@
           <i data-lucide="user" class="w-4 h-4"></i>
         </div>
         <div>
-          <h3 class="text-base sm:text-lg font-bold text-white tracking-tight" data-i18n="accountManagerTitle">Account & PFP Manager</h3>
-          <p class="text-xs text-apple-graySub" data-i18n="accountManagerSubtitle">Switch active user or register new account.</p>
+          <h3 class="text-base sm:text-lg font-bold text-white tracking-tight" data-i18n="accountManagerTitle">Account & Profile Switcher</h3>
+          <p class="text-xs text-apple-graySub" data-i18n="accountManagerSubtitle">Switch active profile or register new handle.</p>
         </div>
       </div>
 
       <div class="space-y-2 mb-4">
         <div class="flex items-center justify-between">
-          <label class="text-xs font-semibold text-zinc-300" data-i18n="registeredAccounts">Registered Accounts</label>
+          <label class="text-xs font-semibold text-zinc-300" data-i18n="registeredAccounts">Registered Profiles</label>
           <button id="forceResetStorageBtn" class="text-[10px] text-apple-red hover:underline font-mono">Purge Cache & Reset</button>
         </div>
         <div id="registeredUsersList" class="space-y-2 max-h-36 overflow-y-auto pr-1"></div>
@@ -513,7 +482,7 @@
 
       <div class="relative flex py-1 items-center">
         <div class="flex-grow border-t border-white/10"></div>
-        <span class="flex-shrink mx-3 text-[10px] text-zinc-500 uppercase tracking-widest font-semibold" data-i18n="orRegister">Or Register Account</span>
+        <span class="flex-shrink mx-3 text-[10px] text-zinc-500 uppercase tracking-widest font-semibold" data-i18n="orRegister">Or Register Profile</span>
         <div class="flex-grow border-t border-white/10"></div>
       </div>
 
@@ -538,7 +507,7 @@
 
         <button type="submit" class="w-full py-2.5 rounded-xl bg-purple-600 hover:bg-purple-500 text-white text-xs font-semibold shadow-lg shadow-purple-600/20 transition active:scale-95 flex items-center justify-center space-x-1.5">
           <i data-lucide="user-plus" class="w-4 h-4"></i>
-          <span data-i18n="registerBtn">Register & Switch Account</span>
+          <span data-i18n="registerBtn">Save & Switch Profile</span>
         </button>
       </form>
     </div>
@@ -586,7 +555,7 @@
   <!-- TOAST CONTAINER -->
   <div id="toastContainer" class="fixed bottom-20 md:bottom-5 right-4 sm:right-5 z-50 flex flex-col space-y-2 pointer-events-none"></div>
 
-  <!-- App Script (Cache Busted v9.1) -->
-  <script src="app.js?v=9.1"></script>
+  <!-- App Script (Pristine v10.0 Release) -->
+  <script src="app.js?v=10.0"></script>
 </body>
 </html>

@@ -1,20 +1,20 @@
 /**
- * Chronos — Personal Availability & Booking Engine (Production v9.1 Fix)
- * - Fixed Onboarding Loop (Guaranteed 1-time onboarding with persistence)
- * - Fixed Host vs Guest Access Control
+ * Chronos — Personal Availability & Booking Engine (Production v10.0 Pristine Release)
+ * - Removed forced onboarding modal wall entirely (Zero infinite loops!)
+ * - Direct instant boot to Calendar with 1-tap "Edit Profile"
+ * - Strict Host vs Guest Access Control
  * - Multilingual System (EN, IT, RO, SL)
  */
 
 (function () {
   'use strict';
 
-  const STORAGE_KEY_ONBOARDED = 'chronos_onboarded_v9_1';
-  const STORAGE_KEY_DEVICE_UID = 'chronos_device_uid_v9_1';
-  const STORAGE_KEY_USERS = 'chronos_users_v9_1';
-  const STORAGE_KEY_APPOINTMENTS = 'chronos_appointments_v9_1';
-  const STORAGE_KEY_CURRENT_USER = 'chronos_current_user_v9_1';
-  const STORAGE_KEY_FRIENDS = 'chronos_friends_v9_1';
-  const STORAGE_KEY_LANG = 'chronos_language_v9_1';
+  const STORAGE_KEY_DEVICE_UID = 'chronos_device_uid_v10';
+  const STORAGE_KEY_USERS = 'chronos_users_v10';
+  const STORAGE_KEY_APPOINTMENTS = 'chronos_appointments_v10';
+  const STORAGE_KEY_CURRENT_USER = 'chronos_current_user_v10';
+  const STORAGE_KEY_FRIENDS = 'chronos_friends_v10';
+  const STORAGE_KEY_LANG = 'chronos_language_v10';
 
   // Retrieve persistent Device UID
   let deviceUid = localStorage.getItem(STORAGE_KEY_DEVICE_UID);
@@ -65,12 +65,12 @@
       usernameLabel: 'Username Handle',
       bioLabel: 'Profile Bio',
       saveChanges: 'Save Changes',
-      accountManagerTitle: 'Account & PFP Manager',
-      accountManagerSubtitle: 'Switch active user or register new account.',
-      registeredAccounts: 'Registered Accounts',
-      orRegister: 'Or Register Account',
+      accountManagerTitle: 'Account & Profile Switcher',
+      accountManagerSubtitle: 'Switch active profile or register new handle.',
+      registeredAccounts: 'Registered Profiles',
+      orRegister: 'Or Register Profile',
       pfpOptionLabel: 'Avatar PFP Option',
-      registerBtn: 'Register & Switch Account',
+      registerBtn: 'Save & Switch Profile',
       addFriendModalTitle: 'Save Friend Calendar',
       addFriendModalSubtitle: 'Type handle to search live user suggestions.',
       searchHandleLabel: 'Search Handle or Name',
@@ -271,8 +271,8 @@
     }
   };
 
-  // Seed default user if clean boot
-  const DEFAULT_SEED_USER = {
+  // Seed default initial user
+  const DEFAULT_USER = {
     deviceUid: deviceUid,
     username: 'me',
     name: 'My Calendar',
@@ -284,8 +284,7 @@
   };
 
   // --- STATE ---
-  let hasOnboarded = localStorage.getItem(STORAGE_KEY_ONBOARDED) === 'true';
-  let users = loadFromStorage(STORAGE_KEY_USERS, [DEFAULT_SEED_USER]);
+  let users = loadFromStorage(STORAGE_KEY_USERS, [DEFAULT_USER]);
   let appointments = loadFromStorage(STORAGE_KEY_APPOINTMENTS, []);
   let currentUsername = loadFromStorage(STORAGE_KEY_CURRENT_USER, 'me');
   let friendsMap = loadFromStorage(STORAGE_KEY_FRIENDS, { me: [] });
@@ -300,6 +299,21 @@
   let selectedDateForBooking = null;
   let currentActiveTab = 'calendar';
   let inboxFilter = 'pending';
+
+  // Ensure active user exists in storage
+  let activeUserObj = users.find(u => u.username.toLowerCase() === (currentUsername || 'me').toLowerCase());
+  if (!activeUserObj) {
+    users.push({
+      deviceUid: deviceUid,
+      username: currentUsername || 'me',
+      name: currentUsername || 'My Calendar',
+      bio: 'Open for appointments.',
+      color: 'from-blue-600 to-indigo-600',
+      privacyShowDetails: true,
+      pfpType: 'initials',
+      pfpUrl: ''
+    });
+  }
 
   saveToStorage(STORAGE_KEY_USERS, users);
   saveToStorage(STORAGE_KEY_APPOINTMENTS, appointments);
@@ -360,12 +374,6 @@
   const liveUserSearchInput = document.getElementById('liveUserSearchInput');
   const clearSearchBtn = document.getElementById('clearSearchBtn');
   const autocompleteDropdown = document.getElementById('autocompleteDropdown');
-
-  // Onboarding Modal
-  const onboardingModal = document.getElementById('onboardingModal');
-  const onboardingForm = document.getElementById('onboardingForm');
-  const onboardingNameInput = document.getElementById('onboardingNameInput');
-  const onboardingHandleInput = document.getElementById('onboardingHandleInput');
 
   // Booking Modal
   const bookingModal = document.getElementById('bookingModal');
@@ -429,13 +437,6 @@
   // --- BOOT ---
   function init() {
     languageSelect.value = currentLang;
-    
-    // Ensure onboarding modal stays hidden if already onboarded or users exist
-    if (hasOnboarded || (users && users.length > 0 && currentUsername)) {
-      closeOnboardingModalImmediate();
-    } else {
-      openOnboardingModal();
-    }
 
     if (!viewingUsername) viewingUsername = currentUsername || 'me';
 
@@ -445,53 +446,6 @@
     updateUserDisplays();
     renderActiveView();
     refreshIcons();
-  }
-
-  function openOnboardingModal() {
-    onboardingModal.classList.remove('hidden');
-    setTimeout(() => onboardingModal.classList.add('modal-open'), 10);
-    refreshIcons();
-  }
-
-  function closeOnboardingModalImmediate() {
-    onboardingModal.classList.remove('modal-open');
-    onboardingModal.classList.add('hidden');
-  }
-
-  function handleOnboardingSubmit(e) {
-    e.preventDefault();
-    const name = onboardingNameInput.value.trim();
-    const handle = onboardingHandleInput.value.trim().toLowerCase().replace(/[^a-z0-9_]/g, '');
-
-    if (!name || !handle) {
-      showToast('Please enter a valid name and handle.', 'error');
-      return;
-    }
-
-    const newUser = {
-      deviceUid: deviceUid,
-      username: handle,
-      name: name,
-      bio: 'Select any available day to request an appointment slot.',
-      color: 'from-blue-600 to-indigo-600',
-      privacyShowDetails: true,
-      pfpType: 'initials',
-      pfpUrl: ''
-    };
-
-    users.push(newUser);
-    currentUsername = handle;
-    if (!urlUserParam) viewingUsername = handle;
-
-    hasOnboarded = true;
-    localStorage.setItem(STORAGE_KEY_ONBOARDED, 'true');
-    saveToStorage(STORAGE_KEY_USERS, users);
-    saveToStorage(STORAGE_KEY_CURRENT_USER, currentUsername);
-
-    closeOnboardingModalImmediate();
-    updateUserDisplays();
-    renderCalendar();
-    showToast(`Welcome ${name}! Your profile is active.`, 'success');
   }
 
   // --- MULTILINGUAL i18n ENGINE ---
@@ -527,8 +481,6 @@
       applyLanguageTranslations();
       showToast(`Language set to ${currentLang.toUpperCase()}`, 'success');
     });
-
-    onboardingForm.addEventListener('submit', handleOnboardingSubmit);
 
     navCalendar.addEventListener('click', () => switchTab('calendar'));
     navInbox.addEventListener('click', () => switchTab('inbox'));
@@ -862,6 +814,14 @@
       if (y === currentYear) opt.selected = true;
       yearSelect.appendChild(opt);
     }
+  }
+
+  function getOffsetDateStr(offsetDays) {
+    const d = new Date();
+    d.setDate(d.getDate() + offsetDays);
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    const dy = String(d.getDate()).padStart(2, '0');
+    return `${d.getFullYear()}-${m}-${dy}`;
   }
 
   // --- NAVIGATION ---
