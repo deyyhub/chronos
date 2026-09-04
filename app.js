@@ -1,7 +1,7 @@
 /**
- * Chronos — Personal Availability & Booking Engine (Production v10.0 Pristine Release)
- * - Removed forced onboarding modal wall entirely (Zero infinite loops!)
- * - Direct instant boot to Calendar with 1-tap "Edit Profile"
+ * Chronos — Personal Availability & Booking Engine (Production v10.1 No-Reload Fix)
+ * - Fixed native HTML form submission reload (Blocked `?` URL query bug)
+ * - Zero forced popups, instant calendar boot
  * - Strict Host vs Guest Access Control
  * - Multilingual System (EN, IT, RO, SL)
  */
@@ -9,12 +9,12 @@
 (function () {
   'use strict';
 
-  const STORAGE_KEY_DEVICE_UID = 'chronos_device_uid_v10';
-  const STORAGE_KEY_USERS = 'chronos_users_v10';
-  const STORAGE_KEY_APPOINTMENTS = 'chronos_appointments_v10';
-  const STORAGE_KEY_CURRENT_USER = 'chronos_current_user_v10';
-  const STORAGE_KEY_FRIENDS = 'chronos_friends_v10';
-  const STORAGE_KEY_LANG = 'chronos_language_v10';
+  const STORAGE_KEY_DEVICE_UID = 'chronos_device_uid_v10_1';
+  const STORAGE_KEY_USERS = 'chronos_users_v10_1';
+  const STORAGE_KEY_APPOINTMENTS = 'chronos_appointments_v10_1';
+  const STORAGE_KEY_CURRENT_USER = 'chronos_current_user_v10_1';
+  const STORAGE_KEY_FRIENDS = 'chronos_friends_v10_1';
+  const STORAGE_KEY_LANG = 'chronos_language_v10_1';
 
   // Retrieve persistent Device UID
   let deviceUid = localStorage.getItem(STORAGE_KEY_DEVICE_UID);
@@ -290,8 +290,8 @@
   let friendsMap = loadFromStorage(STORAGE_KEY_FRIENDS, { me: [] });
   let currentLang = loadFromStorage(STORAGE_KEY_LANG, 'en');
 
-  let urlUserParam = getUrlParameter('user');
-  let viewingUsername = urlUserParam || currentUsername || 'me';
+  let rawParam = getUrlParameter('user');
+  let viewingUsername = (rawParam && rawParam !== '?') ? rawParam : (currentUsername || 'me');
 
   let currentDate = new Date();
   let currentMonth = currentDate.getMonth();
@@ -438,7 +438,7 @@
   function init() {
     languageSelect.value = currentLang;
 
-    if (!viewingUsername) viewingUsername = currentUsername || 'me';
+    if (!viewingUsername || viewingUsername === '?') viewingUsername = currentUsername || 'me';
 
     applyLanguageTranslations();
     setupYearSelect();
@@ -536,11 +536,21 @@
 
     editProfileBtn.addEventListener('click', openEditProfileModal);
     closeEditProfileModalBtn.addEventListener('click', closeEditProfileModal);
-    editProfileForm.addEventListener('submit', handleSaveProfileEdit);
+    editProfileForm.addEventListener('submit', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      handleSaveProfileEdit(e);
+      return false;
+    });
 
     userAccountBtn.addEventListener('click', openAuthModal);
     closeAuthModalBtn.addEventListener('click', closeAuthModal);
-    createAccountForm.addEventListener('submit', handleCreateAccount);
+    createAccountForm.addEventListener('submit', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      handleCreateAccount(e);
+      return false;
+    });
 
     if (forceResetStorageBtn) {
       forceResetStorageBtn.addEventListener('click', () => {
@@ -557,7 +567,12 @@
     });
 
     closeBookingModalBtn.addEventListener('click', closeBookingModal);
-    bookingForm.addEventListener('submit', handleBookingSubmit);
+    bookingForm.addEventListener('submit', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      handleBookingSubmit(e);
+      return false;
+    });
     fullDayCheckbox.addEventListener('change', handleFullDayToggle);
 
     startTimeInput.addEventListener('input', calculateDuration);
@@ -587,7 +602,12 @@
 
     openAddFriendModalBtn.addEventListener('click', openAddFriendModal);
     closeAddFriendModalBtn.addEventListener('click', closeAddFriendModal);
-    addFriendForm.addEventListener('submit', handleAddFriend);
+    addFriendForm.addEventListener('submit', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      handleAddFriend(e);
+      return false;
+    });
     addFriendBtn.addEventListener('click', () => addFriendToCurrentUser(viewingUsername));
 
     liveUserSearchInput.addEventListener('input', handleLiveUserSearch);
@@ -678,11 +698,11 @@
         </div>
 
         <div class="flex items-center space-x-1.5 flex-shrink-0">
-          <button class="view-cal-btn px-2.5 py-1 rounded-lg bg-apple-accent/20 hover:bg-apple-accent/30 text-apple-accent text-[11px] font-semibold transition">
+          <button type="button" class="view-cal-btn px-2.5 py-1 rounded-lg bg-apple-accent/20 hover:bg-apple-accent/30 text-apple-accent text-[11px] font-semibold transition">
             ${dict.navCalendar}
           </button>
           ${!isFriend && userObj.username !== currentUsername ? `
-            <button class="add-friend-quick-btn px-2.5 py-1 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-[11px] font-semibold transition">
+            <button type="button" class="add-friend-quick-btn px-2.5 py-1 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-[11px] font-semibold transition">
               + ${dict.addFriendBtn}
             </button>
           ` : ''}
@@ -883,7 +903,7 @@
   }
 
   function handleSaveProfileEdit(e) {
-    e.preventDefault();
+    if (e && e.preventDefault) e.preventDefault();
     const newName = editDisplayNameInput.value.trim();
     const newHandle = editUsernameInput.value.trim().toLowerCase().replace(/[^a-z0-9_]/g, '');
     const newBio = editBioInput.value.trim();
@@ -1163,7 +1183,7 @@
   }
 
   function handleBookingSubmit(e) {
-    e.preventDefault();
+    if (e && e.preventDefault) e.preventDefault();
 
     if (!selectedDateForBooking) return;
 
@@ -1317,16 +1337,16 @@
 
         <div class="flex items-center space-x-2 w-full sm:w-auto justify-end pt-2 sm:pt-0 border-t sm:border-t-0 border-white/10">
           ${apt.status === 'pending' ? `
-            <button class="accept-btn px-4 py-2 rounded-xl bg-apple-green/20 hover:bg-apple-green/30 text-emerald-300 border border-apple-green/40 text-xs font-semibold flex items-center space-x-1.5 transition active:scale-95" data-id="${apt.id}">
+            <button type="button" class="accept-btn px-4 py-2 rounded-xl bg-apple-green/20 hover:bg-apple-green/30 text-emerald-300 border border-apple-green/40 text-xs font-semibold flex items-center space-x-1.5 transition active:scale-95" data-id="${apt.id}">
               <i data-lucide="check" class="w-4 h-4 text-emerald-400"></i>
               <span>Accept</span>
             </button>
-            <button class="decline-btn px-4 py-2 rounded-xl bg-apple-red/20 hover:bg-apple-red/30 text-red-300 border border-apple-red/40 text-xs font-semibold flex items-center space-x-1.5 transition active:scale-95" data-id="${apt.id}">
+            <button type="button" class="decline-btn px-4 py-2 rounded-xl bg-apple-red/20 hover:bg-apple-red/30 text-red-300 border border-apple-red/40 text-xs font-semibold flex items-center space-x-1.5 transition active:scale-95" data-id="${apt.id}">
               <i data-lucide="x" class="w-4 h-4 text-red-400"></i>
               <span>Decline</span>
             </button>
           ` : `
-            <button class="delete-btn p-2 rounded-xl bg-white/5 hover:bg-white/10 text-zinc-400 hover:text-white border border-white/10 transition" data-id="${apt.id}">
+            <button type="button" class="delete-btn p-2 rounded-xl bg-white/5 hover:bg-white/10 text-zinc-400 hover:text-white border border-white/10 transition" data-id="${apt.id}">
               <i data-lucide="trash-2" class="w-4 h-4"></i>
             </button>
           `}
@@ -1414,11 +1434,11 @@
         </div>
 
         <div class="flex items-center space-x-1.5">
-          <button class="view-friend-cal-btn px-3 py-1.5 rounded-xl bg-white/10 hover:bg-white/20 text-white text-xs font-semibold border border-white/15 transition flex items-center space-x-1" data-username="${friendObj.username}">
+          <button type="button" class="view-friend-cal-btn px-3 py-1.5 rounded-xl bg-white/10 hover:bg-white/20 text-white text-xs font-semibold border border-white/15 transition flex items-center space-x-1" data-username="${friendObj.username}">
             <i data-lucide="calendar" class="w-3.5 h-3.5 text-apple-accent"></i>
             <span>${dict.navCalendar}</span>
           </button>
-          <button class="remove-friend-btn p-1.5 rounded-xl bg-white/5 hover:bg-red-500/20 text-zinc-400 hover:text-red-400 border border-white/10 transition" data-username="${friendObj.username}">
+          <button type="button" class="remove-friend-btn p-1.5 rounded-xl bg-white/5 hover:bg-red-500/20 text-zinc-400 hover:text-red-400 border border-white/10 transition" data-username="${friendObj.username}">
             <i data-lucide="user-x" class="w-3.5 h-3.5"></i>
           </button>
         </div>
@@ -1494,7 +1514,7 @@
   }
 
   function handleAddFriend(e) {
-    e.preventDefault();
+    if (e && e.preventDefault) e.preventDefault();
     const handle = friendUsernameInput.value.trim();
     if (handle) {
       addFriendToCurrentUser(handle);
@@ -1553,7 +1573,7 @@
   }
 
   function handleCreateAccount(e) {
-    e.preventDefault();
+    if (e && e.preventDefault) e.preventDefault();
     const handle = newUsername.value.trim().toLowerCase().replace(/[^a-z0-9_]/g, '');
     const name = newDisplayName.value.trim();
     const pfpType = pfpTypeSelect.value;
