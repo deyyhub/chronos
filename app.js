@@ -1,30 +1,29 @@
 /**
- * Chronos — Personal Availability & Booking Engine (Production v9.0 Release)
- * Features:
- * - Device UID Identification & Mandatory Onboarding Gate for new phones/visitors
- * - Strict Host vs Guest Access Control (Guests can only request appointments, cannot edit host)
- * - Multilingual System (EN, IT, RO, SL across months, status badges, & UI controls)
- * - Rest API Cloud Database Sync Adapter Ready (Supabase / Firebase / Cloudflare)
+ * Chronos — Personal Availability & Booking Engine (Production v9.1 Fix)
+ * - Fixed Onboarding Loop (Guaranteed 1-time onboarding with persistence)
+ * - Fixed Host vs Guest Access Control
+ * - Multilingual System (EN, IT, RO, SL)
  */
 
 (function () {
   'use strict';
 
-  const STORAGE_KEY_DEVICE_UID = 'chronos_device_uid_v9';
-  const STORAGE_KEY_USERS = 'chronos_users_v9';
-  const STORAGE_KEY_APPOINTMENTS = 'chronos_appointments_v9';
-  const STORAGE_KEY_CURRENT_USER = 'chronos_current_user_v9';
-  const STORAGE_KEY_FRIENDS = 'chronos_friends_v9';
-  const STORAGE_KEY_LANG = 'chronos_language_v9';
+  const STORAGE_KEY_ONBOARDED = 'chronos_onboarded_v9_1';
+  const STORAGE_KEY_DEVICE_UID = 'chronos_device_uid_v9_1';
+  const STORAGE_KEY_USERS = 'chronos_users_v9_1';
+  const STORAGE_KEY_APPOINTMENTS = 'chronos_appointments_v9_1';
+  const STORAGE_KEY_CURRENT_USER = 'chronos_current_user_v9_1';
+  const STORAGE_KEY_FRIENDS = 'chronos_friends_v9_1';
+  const STORAGE_KEY_LANG = 'chronos_language_v9_1';
 
-  // Generate or retrieve persistent Device UID
+  // Retrieve persistent Device UID
   let deviceUid = localStorage.getItem(STORAGE_KEY_DEVICE_UID);
   if (!deviceUid) {
     deviceUid = 'dev_' + Date.now() + '_' + Math.random().toString(36).substr(2, 6);
     localStorage.setItem(STORAGE_KEY_DEVICE_UID, deviceUid);
   }
 
-  // 100% Complete Translation Dictionaries
+  // Translation Dictionaries
   const I18N = {
     en: {
       months: ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'],
@@ -272,15 +271,28 @@
     }
   };
 
-  // --- INITIAL DATA & STORAGE ---
-  let users = loadFromStorage(STORAGE_KEY_USERS, []);
+  // Seed default user if clean boot
+  const DEFAULT_SEED_USER = {
+    deviceUid: deviceUid,
+    username: 'me',
+    name: 'My Calendar',
+    bio: 'Select any available day to request an appointment slot.',
+    color: 'from-blue-600 to-indigo-600',
+    privacyShowDetails: true,
+    pfpType: 'initials',
+    pfpUrl: ''
+  };
+
+  // --- STATE ---
+  let hasOnboarded = localStorage.getItem(STORAGE_KEY_ONBOARDED) === 'true';
+  let users = loadFromStorage(STORAGE_KEY_USERS, [DEFAULT_SEED_USER]);
   let appointments = loadFromStorage(STORAGE_KEY_APPOINTMENTS, []);
-  let currentUsername = loadFromStorage(STORAGE_KEY_CURRENT_USER, null);
-  let friendsMap = loadFromStorage(STORAGE_KEY_FRIENDS, {});
+  let currentUsername = loadFromStorage(STORAGE_KEY_CURRENT_USER, 'me');
+  let friendsMap = loadFromStorage(STORAGE_KEY_FRIENDS, { me: [] });
   let currentLang = loadFromStorage(STORAGE_KEY_LANG, 'en');
 
   let urlUserParam = getUrlParameter('user');
-  let viewingUsername = urlUserParam || currentUsername || 'host';
+  let viewingUsername = urlUserParam || currentUsername || 'me';
 
   let currentDate = new Date();
   let currentMonth = currentDate.getMonth();
@@ -288,6 +300,12 @@
   let selectedDateForBooking = null;
   let currentActiveTab = 'calendar';
   let inboxFilter = 'pending';
+
+  saveToStorage(STORAGE_KEY_USERS, users);
+  saveToStorage(STORAGE_KEY_APPOINTMENTS, appointments);
+  saveToStorage(STORAGE_KEY_CURRENT_USER, currentUsername);
+  saveToStorage(STORAGE_KEY_FRIENDS, friendsMap);
+  saveToStorage(STORAGE_KEY_LANG, currentLang);
 
   // --- DOM ELEMENTS ---
   const brandLink = document.getElementById('brandLink');
@@ -408,23 +426,18 @@
 
   const toastContainer = document.getElementById('toastContainer');
 
-  // --- BOOT & ONBOARDING GATE ---
+  // --- BOOT ---
   function init() {
     languageSelect.value = currentLang;
     
-    // Check if device is registered
-    const currentUserObj = users.find(u => u.deviceUid === deviceUid || u.username === currentUsername);
-
-    if (!currentUserObj && !currentUsername) {
+    // Ensure onboarding modal stays hidden if already onboarded or users exist
+    if (hasOnboarded || (users && users.length > 0 && currentUsername)) {
+      closeOnboardingModalImmediate();
+    } else {
       openOnboardingModal();
-    } else if (currentUserObj) {
-      currentUsername = currentUserObj.username;
-      saveToStorage(STORAGE_KEY_CURRENT_USER, currentUsername);
     }
 
-    if (!viewingUsername || viewingUsername === 'host') {
-      viewingUsername = currentUsername || 'my_calendar';
-    }
+    if (!viewingUsername) viewingUsername = currentUsername || 'me';
 
     applyLanguageTranslations();
     setupYearSelect();
@@ -438,6 +451,11 @@
     onboardingModal.classList.remove('hidden');
     setTimeout(() => onboardingModal.classList.add('modal-open'), 10);
     refreshIcons();
+  }
+
+  function closeOnboardingModalImmediate() {
+    onboardingModal.classList.remove('modal-open');
+    onboardingModal.classList.add('hidden');
   }
 
   function handleOnboardingSubmit(e) {
@@ -463,18 +481,17 @@
 
     users.push(newUser);
     currentUsername = handle;
-
     if (!urlUserParam) viewingUsername = handle;
 
+    hasOnboarded = true;
+    localStorage.setItem(STORAGE_KEY_ONBOARDED, 'true');
     saveToStorage(STORAGE_KEY_USERS, users);
     saveToStorage(STORAGE_KEY_CURRENT_USER, currentUsername);
 
-    onboardingModal.classList.remove('modal-open');
-    setTimeout(() => onboardingModal.classList.add('hidden'), 300);
-
+    closeOnboardingModalImmediate();
     updateUserDisplays();
     renderCalendar();
-    showToast(`Welcome ${name}! Your profile is live.`, 'success');
+    showToast(`Welcome ${name}! Your profile is active.`, 'success');
   }
 
   // --- MULTILINGUAL i18n ENGINE ---
@@ -1083,11 +1100,6 @@
       `;
 
       dayCell.addEventListener('click', () => {
-        if (!currentUsername) {
-          openOnboardingModal();
-          return;
-        }
-
         if (hasAccepted || hasPending) {
           const targetApt = dayAppointments.find(a => a.status === 'accepted') || dayAppointments.find(a => a.status === 'pending');
           openNoteInspectModal(targetApt, dateKey);
@@ -1474,10 +1486,7 @@
   }
 
   function addFriendToCurrentUser(username) {
-    if (!currentUsername) {
-      openOnboardingModal();
-      return;
-    }
+    if (!currentUsername) return;
 
     const cleanUsername = username.trim().toLowerCase();
     if (!cleanUsername) return;
