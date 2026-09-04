@@ -1,9 +1,9 @@
 /**
- * Chronos — Personal Availability & Booking Engine (Production v13.1 Live Cloud Relay Engine)
+ * Chronos — Personal Availability & Booking Engine (Production v14.0 GunDB Realtime Mesh)
  * Features:
- * - Unified Live Cloud Relay: Instant 200-OK real-time syncing of user accounts and bookings across all phones.
- * - Global User Directory Search: Instant cloud search for any registered user on any device.
- * - Live Calendar & Inbox Polling: Automatically updates calendars and incoming booking requests in real-time (3s interval).
+ * - GunDB Peer-to-Peer Realtime Mesh: Internet-wide live synchronization via cloud WebSocket relays.
+ * - Global User Directory Search: Instant cloud search for any registered user on any device worldwide.
+ * - Live Calendar & Inbox Sync: Realtime events on bookings, status changes, and profile edits.
  * - Dual Storage: 1-Year Cookie (`document.cookie`) + LocalStorage Machine ID persistence.
  * - Strict Host vs Guest Access Control.
  * - Multilingual Engine (EN, IT, RO, SL).
@@ -64,79 +64,128 @@
   const KEY_FRIENDS = 'chronos_friends_v12';
   const KEY_LANG = 'chronos_language_v12';
 
-  // --- REAL-TIME CLOUD SYNC ENGINE (Cross-Device Live DB) ---
-  const CLOUD_SYNC_ENDPOINT = 'https://api.npoint.io/c6a7e58a2d1d491f868a';
+  // --- REAL-TIME DATABASE ENGINE (GunDB Mesh Network) ---
+  let gunInstance = null;
+  let dbScope = null;
+  let dbUsers = null;
+  let dbAppointments = null;
 
-  let isSyncing = false;
-
-  async function syncPushAllData() {
+  function initRealtimeDB() {
     try {
-      const payload = {
-        users: users,
-        appointments: appointments,
-        updatedAt: Date.now()
-      };
-      await fetch(CLOUD_SYNC_ENDPOINT, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
-      });
+      if (window.Gun) {
+        gunInstance = window.Gun([
+          'https://gun-manhattan.herokuapp.com/gun',
+          'https://relay.peer.ooo/gun',
+          'https://peer.wall.org/gun'
+        ]);
+        dbScope = gunInstance.get('chronos_production_mesh_v14');
+        dbUsers = dbScope.get('users');
+        dbAppointments = dbScope.get('appointments');
+
+        // Realtime Listener: All Users
+        dbUsers.map().on((userData, handle) => {
+          if (!userData || !userData.username) return;
+          const cleanH = String(userData.username).toLowerCase().replace(/^@/, '');
+          const existingIdx = users.findIndex(u => u.username.toLowerCase().replace(/^@/, '') === cleanH);
+          const safeUser = {
+            username: cleanH,
+            name: userData.name || cleanH,
+            bio: userData.bio || '',
+            color: userData.color || 'from-blue-600 to-indigo-600',
+            privacyShowDetails: userData.privacyShowDetails !== false,
+            pfpType: userData.pfpType || 'initials',
+            pfpUrl: userData.pfpUrl || ''
+          };
+
+          if (existingIdx >= 0) {
+            users[existingIdx] = { ...users[existingIdx], ...safeUser };
+          } else {
+            users.push(safeUser);
+          }
+          saveStorageAndCookie(KEY_USERS, users);
+        });
+
+        // Realtime Listener: All Appointments
+        dbAppointments.map().on((aptData, id) => {
+          if (!aptData || !aptData.id || aptData.deleted) return;
+          const existingIdx = appointments.findIndex(a => a.id === aptData.id);
+          const safeApt = {
+            id: aptData.id,
+            hostUsername: String(aptData.hostUsername || '').toLowerCase().replace(/^@/, ''),
+            requesterUsername: String(aptData.requesterUsername || '').toLowerCase().replace(/^@/, ''),
+            requesterName: aptData.requesterName || '',
+            dateStr: aptData.dateStr || '',
+            startTime: aptData.startTime || '',
+            endTime: aptData.endTime || '',
+            isFullDay: Boolean(aptData.isFullDay),
+            note: aptData.note || '',
+            status: aptData.status || 'pending',
+            createdAt: aptData.createdAt || new Date().toISOString()
+          };
+
+          if (existingIdx >= 0) {
+            appointments[existingIdx] = { ...appointments[existingIdx], ...safeApt };
+          } else {
+            appointments.push(safeApt);
+          }
+          saveStorageAndCookie(KEY_APPOINTMENTS, appointments);
+          renderActiveView();
+          updateInboxBadgeCount();
+        });
+
+        if (currentUsername) {
+          dbPushUser(getUser(currentUsername));
+        }
+      }
     } catch (e) {}
   }
 
-  async function syncFetchAllData() {
-    if (isSyncing) return;
-    isSyncing = true;
-    try {
-      const res = await fetch(CLOUD_SYNC_ENDPOINT);
-      if (res.ok) {
-        const cloudData = await res.json();
-        if (cloudData && typeof cloudData === 'object') {
-          let updated = false;
+  function dbPushUser(userObj) {
+    if (!userObj || !userObj.username) return;
+    const cleanHandle = String(userObj.username).toLowerCase().replace(/^@/, '');
+    if (dbUsers) {
+      try {
+        dbUsers.get(cleanHandle).put({
+          username: cleanHandle,
+          name: userObj.name || cleanHandle,
+          bio: userObj.bio || '',
+          color: userObj.color || 'from-blue-600 to-indigo-600',
+          privacyShowDetails: userObj.privacyShowDetails !== false,
+          pfpType: userObj.pfpType || 'initials',
+          pfpUrl: userObj.pfpUrl || ''
+        });
+      } catch (e) {}
+    }
+  }
 
-          // Merge Users
-          const cloudUsers = Array.isArray(cloudData.users) ? cloudData.users : Object.values(cloudData.users || {});
-          cloudUsers.forEach(cu => {
-            if (cu && cu.username) {
-              const cleanH = cu.username.toLowerCase().replace(/^@/, '');
-              const idx = users.findIndex(u => u.username.toLowerCase().replace(/^@/, '') === cleanH);
-              if (idx >= 0) {
-                users[idx] = { ...users[idx], ...cu };
-              } else {
-                users.push(cu);
-                updated = true;
-              }
-            }
-          });
+  function dbPushAppointment(aptObj) {
+    if (!aptObj || !aptObj.id) return;
+    if (dbAppointments) {
+      try {
+        dbAppointments.get(aptObj.id).put({
+          id: aptObj.id,
+          hostUsername: String(aptObj.hostUsername || '').toLowerCase().replace(/^@/, ''),
+          requesterUsername: String(aptObj.requesterUsername || '').toLowerCase().replace(/^@/, ''),
+          requesterName: aptObj.requesterName || '',
+          dateStr: aptObj.dateStr || '',
+          startTime: aptObj.startTime || '',
+          endTime: aptObj.endTime || '',
+          isFullDay: Boolean(aptObj.isFullDay),
+          note: aptObj.note || '',
+          status: aptObj.status || 'pending',
+          createdAt: aptObj.createdAt || new Date().toISOString(),
+          deleted: false
+        });
+      } catch (e) {}
+    }
+  }
 
-          // Merge Appointments
-          const cloudApts = Array.isArray(cloudData.appointments) ? cloudData.appointments : Object.values(cloudData.appointments || {});
-          cloudApts.forEach(ca => {
-            if (ca && ca.id) {
-              const idx = appointments.findIndex(a => a.id === ca.id);
-              if (idx >= 0) {
-                if (JSON.stringify(appointments[idx]) !== JSON.stringify(ca)) {
-                  appointments[idx] = ca;
-                  updated = true;
-                }
-              } else {
-                appointments.push(ca);
-                updated = true;
-              }
-            }
-          });
-
-          if (updated) {
-            saveStorageAndCookie(KEY_USERS, users);
-            saveStorageAndCookie(KEY_APPOINTMENTS, appointments);
-            renderActiveView();
-            updateInboxBadgeCount();
-          }
-        }
-      }
-    } catch (e) {
-    } finally {
-      isSyncing = false;
+  function dbDeleteAppointment(aptId) {
+    if (!aptId) return;
+    if (dbAppointments) {
+      try {
+        dbAppointments.get(aptId).put({ deleted: true });
+      } catch (e) {}
     }
   }
 
@@ -576,15 +625,8 @@
     renderActiveView();
     refreshIcons();
 
-    // Start Realtime Cloud Synchronization Engine (3s Polling + Window Focus)
-    syncFetchAllData();
-    setInterval(() => {
-      syncFetchAllData();
-    }, 3000);
-
-    window.addEventListener('focus', () => {
-      syncFetchAllData();
-    });
+    // Start Realtime Database Engine (GunDB Mesh)
+    initRealtimeDB();
   }
 
   function openRegistrationGateModal() {
@@ -625,7 +667,7 @@
 
     saveStorageAndCookie(KEY_USERS, users);
     saveStorageAndCookie(KEY_CURRENT_USER, currentUsername);
-    syncPushAllData();
+    dbPushUser(newUser);
 
     closeRegistrationGateModal();
     updateUserDisplays();
@@ -869,7 +911,7 @@
     saveStorageAndCookie(KEY_USERS, users);
     viewingUsername = currentUsername;
     saveStorageAndCookie(KEY_CURRENT_USER, currentUsername);
-    syncPushAllData();
+    dbPushUser(targetUser || users[users.length - 1]);
 
     newUsername.value = '';
     newDisplayName.value = '';
@@ -893,7 +935,6 @@
     }
 
     clearSearchBtn.classList.remove('hidden');
-    syncFetchAllData();
 
     const matches = users.filter(u => 
       u.name.toLowerCase().includes(q) || 
@@ -910,7 +951,6 @@
       modalAutocompleteDropdown.classList.add('hidden');
       return;
     }
-    syncFetchAllData();
     const matches = users.filter(u => 
       u.name.toLowerCase().includes(q) || 
       u.username.toLowerCase().replace(/^@/, '').includes(q)
@@ -1198,7 +1238,7 @@
     }
 
     saveStorageAndCookie(KEY_USERS, users);
-    syncPushAllData();
+    dbPushUser(curUser);
 
     closeEditProfileModal();
     updateUserDisplays();
@@ -1491,7 +1531,7 @@
 
     appointments.push(newAppointment);
     saveStorageAndCookie(KEY_APPOINTMENTS, appointments);
-    syncPushAllData();
+    dbPushAppointment(newAppointment);
 
     closeBookingModal();
     renderCalendar();
@@ -1660,7 +1700,7 @@
     if (target) {
       target.status = status;
       saveStorageAndCookie(KEY_APPOINTMENTS, appointments);
-      syncPushAllData();
+      dbPushAppointment(target);
       renderInbox();
       renderCalendar();
       updateInboxBadgeCount();
@@ -1671,7 +1711,7 @@
   function deleteAppointment(id) {
     appointments = appointments.filter(a => a.id !== id);
     saveStorageAndCookie(KEY_APPOINTMENTS, appointments);
-    syncPushAllData();
+    dbDeleteAppointment(id);
     renderInbox();
     renderCalendar();
     updateInboxBadgeCount();
